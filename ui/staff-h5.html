@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>员工工作台 - 桂山华星酒店</title>
+  <style>
+    :root {
+      --paper: #f4efe6;
+      --paper-soft: #fbf8f2;
+      --ink: #1d2b23;
+      --ink-soft: #46564c;
+      --brass: #b08d4f;
+      --brass-deep: #8f6f35;
+      --line: #ddd3c2;
+      --ok: #3e7a52;
+      --warn: #b3651f;
+      --bad: #a4432f;
+      --radius: 14px;
+      --shadow: 0 10px 30px rgba(29, 43, 35, 0.1);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+      color: var(--ink);
+      background: var(--paper);
+      -webkit-font-smoothing: antialiased;
+    }
+    .app {
+      max-width: 520px;
+      margin: 0 auto;
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+    }
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 20px;
+      background: var(--ink);
+      color: var(--paper-soft);
+    }
+    .brand { display: flex; align-items: center; gap: 10px; }
+    .brand-mark {
+      width: 34px; height: 34px;
+      display: grid; place-items: center;
+      font-size: 18px; font-weight: 700;
+      color: var(--ink);
+      background: var(--brass);
+      border-radius: 8px;
+    }
+    .brand-text strong { font-size: 16px; display: block; line-height: 1.2; }
+    .brand-text span { font-size: 10px; opacity: 0.8; letter-spacing: 1px; }
+    .logout-btn {
+      background: transparent;
+      color: var(--paper-soft);
+      border: 1px solid rgba(244, 239, 230, 0.4);
+      padding: 6px 12px;
+      border-radius: 999px;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    main { flex: 1; padding: 16px; }
+    .tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 16px;
+      overflow-x: auto;
+    }
+    .tab {
+      flex: 1;
+      padding: 12px;
+      text-align: center;
+      background: var(--paper-soft);
+      border-radius: 10px;
+      font-size: 14px;
+      cursor: pointer;
+      border: 1px solid var(--line);
+      color: var(--ink-soft);
+      white-space: nowrap;
+      font-weight: 500;
+    }
+    .tab.active {
+      background: var(--ok);
+      color: #fff;
+      border-color: var(--ok);
+    }
+    .task-list { display: flex; flex-direction: column; gap: 12px; }
+    .task-card {
+      background: var(--paper-soft);
+      border-radius: var(--radius);
+      padding: 16px;
+      box-shadow: var(--shadow);
+      border: 1px solid var(--line);
+    }
+    .task-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 10px;
+    }
+    .task-room {
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--ink);
+    }
+    .task-type {
+      font-size: 13px;
+      color: var(--ink-soft);
+      margin-top: 2px;
+    }
+    .task-status {
+      font-size: 12px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .status-assigned { background: rgba(176, 141, 79, 0.15); color: var(--brass-deep); }
+    .status-in_progress { background: rgba(179, 101, 31, 0.12); color: var(--warn); }
+    .status-done { background: rgba(62, 122, 82, 0.12); color: var(--ok); }
+    .status-pending { background: rgba(70, 86, 76, 0.1); color: var(--ink-soft); }
+    .task-desc {
+      font-size: 15px;
+      color: var(--ink);
+      line-height: 1.5;
+      padding: 12px 0;
+      border-top: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
+      margin-bottom: 12px;
+    }
+    .task-meta {
+      font-size: 12px;
+      color: var(--ink-soft);
+      margin-bottom: 12px;
+    }
+    .task-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .btn {
+      padding: 14px;
+      border: none;
+      border-radius: 10px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.1s, opacity 0.2s;
+    }
+    .btn:active { transform: translateY(1px); }
+    .btn-green {
+      background: var(--ok);
+      color: #fff;
+    }
+    .btn-red {
+      background: var(--bad);
+      color: #fff;
+    }
+    .btn-blue {
+      background: #4a90d9;
+      color: #fff;
+    }
+    .btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+    .empty {
+      text-align: center;
+      padding: 60px 0;
+      color: var(--ink-soft);
+      font-size: 14px;
+    }
+    .login-card {
+      margin-top: 40px;
+    }
+    .form-group { margin-bottom: 18px; }
+    label {
+      display: block;
+      font-size: 13px;
+      color: var(--ink-soft);
+      margin-bottom: 6px;
+      font-weight: 500;
+    }
+    input {
+      width: 100%;
+      border: 1px solid var(--line);
+      background: var(--paper-soft);
+      border-radius: 10px;
+      padding: 13px 14px;
+      font-size: 16px;
+      color: var(--ink);
+      outline: none;
+    }
+    .message {
+      padding: 12px;
+      border-radius: 10px;
+      margin-bottom: 16px;
+      font-size: 14px;
+      display: none;
+    }
+    .message.success { background: rgba(62, 122, 82, 0.1); color: var(--ok); display: block; }
+    .message.error { background: rgba(164, 67, 47, 0.08); color: var(--bad); display: block; }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="topbar">
+      <div class="brand">
+        <div class="brand-mark">桂</div>
+        <div class="brand-text">
+          <strong>桂山华星酒店</strong>
+          <span>员工工作台</span>
+        </div>
+      </div>
+      <button class="logout-btn" id="logoutBtn" style="display:none;" onclick="logout()">退出</button>
+    </div>
+
+    <main>
+      <div id="message" class="message"></div>
+
+      <!-- 登录页 -->
+      <div id="loginPage">
+        <div class="task-card login-card">
+          <div class="task-room" style="margin-bottom:4px;">请登录</div>
+          <div class="task-type" style="margin-bottom:18px;">输入姓名和密码</div>
+          <form id="loginForm">
+            <div class="form-group">
+              <label for="identifier">姓名</label>
+              <input type="text" id="identifier" placeholder="例如：李逍遥" required>
+            </div>
+            <div class="form-group">
+              <label for="password">密码</label>
+              <input type="password" id="password" placeholder="默认 staff888ok" required>
+            </div>
+            <button type="submit" class="btn btn-green" style="width:100%;">登录</button>
+          </form>
+        </div>
+      </div>
+
+      <!-- 工单页 -->
+      <div id="tasksPage" style="display: none;">
+        <div class="tabs">
+          <div class="tab active" data-status="">全部</div>
+          <div class="tab" data-status="assigned">待处理</div>
+          <div class="tab" data-status="in_progress">进行中</div>
+          <div class="tab" data-status="done">已完成</div>
+        </div>
+
+        <div id="taskList" class="task-list"></div>
+        <div id="emptyState" class="empty" style="display: none;">暂无工单</div>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    const API_BASE = '/api/domhotel-suite';
+    let currentStatus = '';
+    let userInfo = null;
+
+    function showMessage(text, type) {
+      const el = document.getElementById('message');
+      el.textContent = text;
+      el.className = 'message ' + (type === 'success' ? 'success' : 'error');
+    }
+
+    function hideMessage() {
+      document.getElementById('message').className = 'message';
+    }
+
+    async function apiGet(path) {
+      const res = await fetch(API_BASE + path, { credentials: 'same-origin' });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.detail || data.error || data.message || ('请求失败 ' + res.status));
+      }
+      return data;
+    }
+
+    async function apiPost(path, body) {
+      const res = await fetch(API_BASE + path, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify(body || {}),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.detail || data.error || data.message || ('请求失败 ' + res.status));
+      }
+      return data;
+    }
+
+    document.getElementById('loginForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      hideMessage();
+      const identifier = document.getElementById('identifier').value.trim();
+      const password = document.getElementById('password').value;
+
+      try {
+        await apiPost('/auth/login', { identifier, password });
+        await loadUserAndTasks();
+      } catch (err) {
+        showMessage('❌ ' + err.message, 'error');
+      }
+    });
+
+    async function loadUserAndTasks() {
+      try {
+        const whoami = await apiGet('/auth/whoami');
+        if (!whoami.user_id) {
+          // 未登录 — 检查是否在企业微信中，自动触发 OAuth 免登（防止循环跳转）
+          if (isInWecom() && !sessionStorage.getItem('oauth_attempted')) {
+            sessionStorage.setItem('oauth_attempted', '1');
+            window.location.href = '/api/domhotel-suite/h5/staff/oauth-init';
+            return;
+          }
+          return;
+        }
+        // 登录成功，清除 OAuth 标记
+        sessionStorage.removeItem('oauth_attempted');
+        userInfo = whoami;
+        document.getElementById('logoutBtn').style.display = 'block';
+        document.getElementById('loginPage').style.display = 'none';
+        document.getElementById('tasksPage').style.display = 'block';
+        await loadTasks();
+      } catch (err) {
+        console.error('whoami failed', err);
+        if (isInWecom() && !sessionStorage.getItem('oauth_attempted')) {
+          sessionStorage.setItem('oauth_attempted', '1');
+          window.location.href = '/api/domhotel-suite/h5/staff/oauth-init';
+        }
+      }
+    }
+
+    function isInWecom() {
+      const ua = navigator.userAgent || '';
+      return /wxwork|micromessenger/i.test(ua);
+    }
+
+    // 检查 URL 参数中的 OAuth 错误
+    (function() {
+      const params = new URLSearchParams(window.location.search);
+      const error = params.get('error');
+      if (error) {
+        // OAuth 失败，清除标记以便重试
+        sessionStorage.removeItem('oauth_attempted');
+        const msgs = {
+          'oauth_failed': '企微授权失败，请重试或使用密码登录',
+          'staff_not_found': '您的企微账号未关联员工，请联系管理员绑定 wecom_userid 后使用密码登录',
+          'oauth_exception': '企微授权异常，请使用密码登录',
+          'no_userid': '企微未返回用户ID，请确认已在企微后台配置网页授权域名',
+        };
+        showMessage('⚠️ ' + (msgs[error] || '登录失败：' + error), 'error');
+        // 清除 URL 参数
+        window.history.replaceState({}, '', window.location.pathname);
+      }
+    })();
+
+    async function loadTasks() {
+      try {
+        const url = currentStatus ? '/my/tasks?status=' + currentStatus : '/my/tasks';
+        const result = await apiGet(url);
+        renderTasks(result.tasks || []);
+      } catch (err) {
+        showMessage('❌ 加载工单失败：' + err.message, 'error');
+      }
+    }
+
+    function statusText(status) {
+      const map = { assigned: '待处理', in_progress: '进行中', done: '已完成', pending: '待派单', rejected: '已退回' };
+      return map[status] || status;
+    }
+
+    function statusClass(status) {
+      return 'status-' + (status || 'pending');
+    }
+
+    function renderTasks(tasks) {
+      const list = document.getElementById('taskList');
+      const empty = document.getElementById('emptyState');
+      if (!tasks.length) {
+        list.innerHTML = '';
+        empty.style.display = 'block';
+        return;
+      }
+      empty.style.display = 'none';
+
+      list.innerHTML = tasks.map(t => {
+        const isAssigned = t.status === 'assigned';
+        const isInProgress = t.status === 'in_progress';
+        const canAction = isAssigned || isInProgress;
+
+        let greenText = '确认';
+        let greenAction = '';
+        if (isAssigned) {
+          greenText = '确认';
+          greenAction = `acceptTask('${t.wo_id}')`;
+        } else if (isInProgress) {
+          greenText = '已完成';
+          greenAction = `doneTask('${t.wo_id}')`;
+        }
+
+        return `
+          <div class="task-card">
+            <div class="task-top">
+              <div>
+                <div class="task-room">${t.room_no || '无房号'}</div>
+                <div class="task-type">${t.work_type || ''} · ${t.priority === 'urgent' ? '紧急' : '一般'}</div>
+              </div>
+              <span class="task-status ${statusClass(t.status)}">${statusText(t.status)}</span>
+            </div>
+            <div class="task-desc">${t.description || ''}</div>
+            <div class="task-meta">工单号：${t.wo_id}</div>
+            ${canAction ? `
+            <div class="task-actions">
+              <button class="btn btn-green" onclick="${greenAction}">${greenText}</button>
+              <button class="btn btn-red" onclick="transferTask('${t.wo_id}')">转单</button>
+              <button class="btn btn-blue" onclick="aiReply('${t.wo_id}')">🤖 AI话术</button>
+            </div>
+            ` : ''}
+            <div id="ai-reply-${t.wo_id}" class="ai-reply-box" style="display:none"></div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    async function acceptTask(woId) {
+      try {
+        await apiPost('/my/tasks/' + woId + '/accept', {});
+        showMessage('✅ 已接单', 'success');
+        await loadTasks();
+      } catch (err) {
+        showMessage('❌ ' + err.message, 'error');
+      }
+    }
+
+    async function doneTask(woId) {
+      try {
+        await apiPost('/my/tasks/' + woId + '/done', {});
+        showMessage('✅ 已完成', 'success');
+        await loadTasks();
+      } catch (err) {
+        showMessage('❌ ' + err.message, 'error');
+      }
+    }
+
+    async function transferTask(woId) {
+      if (!confirm('确定要转单（退回工单池）吗？')) return;
+      try {
+        await apiPost('/my/tasks/' + woId + '/transfer', { reason: '员工转单' });
+        showMessage('✅ 已转单，等待重新分配', 'success');
+        await loadTasks();
+      } catch (err) {
+        showMessage('❌ ' + err.message, 'error');
+      }
+    }
+
+    async function aiReply(woId) {
+      const box = document.getElementById('ai-reply-' + woId);
+      if (box.style.display === 'block') {
+        box.style.display = 'none';
+        return;
+      }
+      box.style.display = 'block';
+      box.innerHTML = '<div style="padding:10px;color:#888;font-size:13px">🤖 AI 正在生成话术…</div>';
+      try {
+        const res = await apiPost('/my/tasks/' + woId + '/ai-reply', {});
+        if (res.ok && res.suggested_reply) {
+          box.innerHTML = `
+            <div style="padding:10px;background:#f8f5ef;border-radius:8px;margin-top:8px">
+              <div style="font-size:12px;color:#888;margin-bottom:6px">🤖 AI 建议回复：</div>
+              <div style="font-size:13px;line-height:1.6;margin-bottom:8px">${escapeHtml(res.suggested_reply)}</div>
+              <div style="display:flex;gap:8px">
+                <button class="btn btn-green" onclick="copyReply(this, '${woId}')" style="font-size:12px;padding:6px 12px">📋 复制</button>
+                <button class="btn btn-blue" onclick="aiReply('${woId}')" style="font-size:12px;padding:6px 12px">🔄 重新生成</button>
+              </div>
+            </div>
+          `;
+          // 存储回复内容用于复制
+          box.dataset.reply = res.suggested_reply;
+        } else {
+          box.innerHTML = '<div style="padding:10px;color:#c00;font-size:13px">生成失败，请重试</div>';
+        }
+      } catch (err) {
+        box.innerHTML = `<div style="padding:10px;color:#c00;font-size:13px">错误：${err.message}</div>`;
+      }
+    }
+
+    function copyReply(btn, woId) {
+      const box = document.getElementById('ai-reply-' + woId);
+      const text = box.dataset.reply || '';
+      if (navigator.clipboard) {
+        navigator.clipboard.writeText(text).then(() => {
+          btn.textContent = '✅ 已复制';
+          setTimeout(() => btn.textContent = '📋 复制', 2000);
+        });
+      } else {
+        // fallback
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        btn.textContent = '✅ 已复制';
+        setTimeout(() => btn.textContent = '📋 复制', 2000);
+      }
+    }
+
+    function escapeHtml(t) {
+      const d = document.createElement('div');
+      d.textContent = t || '';
+      return d.innerHTML;
+    }
+
+    async function logout() {
+      try { await apiPost('/auth/logout', {}); } catch (e) {}
+      userInfo = null;
+      document.getElementById('logoutBtn').style.display = 'none';
+      document.getElementById('loginPage').style.display = 'block';
+      document.getElementById('tasksPage').style.display = 'none';
+      document.getElementById('loginForm').reset();
+    }
+
+    document.querySelectorAll('.tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        currentStatus = tab.dataset.status;
+        loadTasks();
+      });
+    });
+
+    loadUserAndTasks();
+  </script>
+</body>
+</html>

@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>桂山华星酒店 - 客房服务</title>
+  <style>
+    :root{--paper:#f4efe6;--paper-soft:#fbf8f2;--ink:#1d2b23;--ink-soft:#46564c;--brass:#b08d4f;--line:#ddd3c2;--ok:#3e7a52;--warn:#b3651f;--bad:#a4432f;--radius:14px;--shadow:0 10px 30px rgba(29,43,35,.1)}
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;color:var(--ink);background:var(--paper);-webkit-font-smoothing:antialiased}
+    .app{max-width:520px;margin:0 auto;min-height:100dvh;display:flex;flex-direction:column}
+    .topbar{display:flex;align-items:center;padding:18px 20px 14px;border-bottom:1px solid var(--line);background:linear-gradient(180deg,rgba(251,248,242,.9),rgba(251,248,242,.6));backdrop-filter:blur(6px);position:sticky;top:0;z-index:10}
+    .brand{display:flex;align-items:center;gap:12px}
+    .brand-mark{width:40px;height:40px;display:grid;place-items:center;font-size:20px;font-weight:600;color:var(--paper-soft);background:var(--ink);border-radius:10px;box-shadow:inset 0 0 0 1.5px var(--brass)}
+    .brand-text strong{font-size:17px;letter-spacing:.5px;display:block;line-height:1.2}
+    .brand-text span{font-size:10px;color:var(--ink-soft);letter-spacing:1px}
+    main{flex:1;padding:20px 20px 96px}
+    .view-title{font-size:22px;font-weight:600;margin-bottom:4px}
+    .view-sub{font-size:13px;color:var(--ink-soft);margin-bottom:20px}
+    .card{background:var(--paper-soft);border-radius:var(--radius);padding:20px;box-shadow:var(--shadow);margin-bottom:16px;border:1px solid var(--line)}
+    .form-group{margin-bottom:16px}
+    label{display:block;font-size:12px;letter-spacing:1.5px;color:var(--ink-soft);margin-bottom:6px;text-transform:uppercase}
+    input,select,textarea{width:100%;border:1px solid var(--line);background:var(--paper-soft);border-radius:var(--radius);padding:13px 14px;font-size:16px;color:var(--ink);outline:none}
+    input:focus,textarea:focus{border-color:var(--brass);box-shadow:0 0 0 3px rgba(176,141,79,.18)}
+    .btn{padding:14px;border:none;border-radius:var(--radius);font-size:16px;font-weight:600;cursor:pointer}
+    .btn-primary{background:var(--ink);color:var(--paper-soft);box-shadow:inset 0 0 0 1.5px var(--brass)}
+    .btn-sm{padding:8px 14px;font-size:13px;border-radius:8px}
+    .btn-ok{background:var(--ok);color:#fff}
+    .btn-warn{background:var(--warn);color:#fff}
+    .btn-block{width:100%}
+    .message{padding:14px;border-radius:var(--radius);margin-bottom:16px;font-size:14px;display:none}
+    .message.success{background:rgba(62,122,82,.1);color:var(--ok);border:1px solid rgba(62,122,82,.3);display:block}
+    .message.error{background:rgba(164,67,47,.08);color:var(--bad);border:1px solid rgba(164,67,47,.25);display:block}
+    .loading{text-align:center;color:var(--ink-soft);padding:20px;display:none}
+    .service-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px}
+    .service-chip{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:12px 8px;text-align:center;font-size:13px;color:var(--ink-soft);cursor:pointer}
+    .service-chip.active{background:var(--ink);color:var(--paper-soft);border-color:var(--ink)}
+    .order-card{background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:10px}
+    .order-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+    .order-type{font-size:15px;font-weight:600}
+    .order-status{padding:3px 10px;border-radius:999px;font-size:11px;color:#fff}
+    .status-pending{background:var(--warn)}.status-processing{background:var(--brass)}.status-done{background:var(--ok)}
+    .order-desc{font-size:13px;color:var(--ink-soft);margin-bottom:8px}
+    .order-meta{font-size:11px;color:#999;line-height:1.6}
+    .order-actions{margin-top:10px;display:flex;gap:8px;flex-wrap:wrap}
+    .star{font-size:20px;color:#ddd;cursor:pointer}.star.active{color:var(--brass)}
+    .divider{display:flex;align-items:center;gap:12px;margin:24px 0 16px;font-size:12px;color:var(--ink-soft);letter-spacing:1px}
+    .divider::before,.divider::after{content:'';flex:1;height:1px;background:var(--line)}
+    .guest-id-hint{font-size:11px;color:var(--ink-soft);margin-top:8px;padding:8px;background:rgba(176,141,79,.08);border-radius:8px}
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="topbar">
+      <div class="brand">
+        <div class="brand-mark">桂</div>
+        <div class="brand-text"><strong>桂山华星酒店</strong><span>客房服务</span></div>
+      </div>
+      <button class="btn btn-sm" style="background:var(--brass);color:#fff;font-size:12px;padding:6px 12px;border-radius:6px;margin-left:auto" onclick="openKf()">💬 联系客服</button>
+    </div>
+    <main>
+      <div id="message" class="message"></div>
+
+      <!-- 首次进入 -->
+      <div id="roomInputSection">
+        <h1 class="view-title">欢迎使用客房服务</h1>
+        <p class="view-sub">请输入房间号开始使用</p>
+
+        <!-- AI客服引导卡片 -->
+        <div class="card" style="background: var(--ink); color: var(--paper-soft); border: 1px solid var(--brass);">
+          <div style="display: flex; align-items: center; gap: 15px;">
+            <div style="font-size: 36px; background: var(--brass); width: 56px; height: 56px; display: grid; place-items: center; border-radius: 12px;">🤖</div>
+            <div style="flex: 1;">
+              <h3 style="margin: 0 0 6px; font-size: 17px; font-weight: 600;">AI智能客服</h3>
+              <p style="margin: 0; font-size: 13px; opacity: 0.8; line-height: 1.5;">
+                一站式解决报修/送物/咨询<br>
+                支持语音输入，24小时在线
+              </p>
+            </div>
+          </div>
+          <button class="btn" style="width: 100%; margin-top: 15px; background: var(--brass); color: var(--ink); font-weight: 600; border: none;" onclick="openKf()">
+            💬 立即咨询
+          </button>
+          <div style="margin-top: 12px; font-size: 11px; opacity: 0.6; text-align: center;">
+            💡 首次使用请先在客服里发送：绑定 [房间号] [姓名]
+          </div>
+        </div>
+
+        <div style="text-align: center; margin: 15px 0; color: #888; font-size: 13px;">
+          ── 或使用自助服务 ──
+        </div>
+
+        <div class="card">
+          <div class="form-group">
+            <label for="room_no_input">房间号 *</label>
+            <input type="text" id="room_no_input" placeholder="例如：1206" inputmode="numeric">
+          </div>
+          <div class="form-group">
+            <label for="guest_name_input">姓名（选填）</label>
+            <input type="text" id="guest_name_input" placeholder="入住登记姓名">
+          </div>
+          <button class="btn btn-primary btn-block" onclick="enterRoom()">进入自助服务</button>
+          <div class="guest-id-hint">💡 系统会自动识别您的身份，您的服务记录会自动关联</div>
+        </div>
+      </div>
+
+      <!-- 主服务区域 -->
+      <div id="mainSection" style="display:none">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+          <div>
+            <h1 class="view-title" style="margin-bottom:0;font-size:20px">房间 <span id="displayRoomNo"></span></h1>
+            <p class="view-sub" style="margin-bottom:0" id="displayGuestName"></p>
+          </div>
+          <button class="btn btn-sm" style="background:var(--paper);border:1px solid var(--line);color:var(--ink-soft)" onclick="switchRoom()">换房号</button>
+        </div>
+
+        <div id="ordersSection">
+          <div class="divider">我的需求单</div>
+          <div id="ordersList"><div class="loading" style="display:block">加载中...</div></div>
+        </div>
+
+        <div class="divider">提交新需求</div>
+        <div class="card">
+          <form id="requestForm">
+            <div class="form-group">
+              <label>服务类型 *</label>
+              <div class="service-grid">
+                <div class="service-chip active" data-value="维修">🔧 维修</div>
+                <div class="service-chip" data-value="清洁">🧹 清洁</div>
+                <div class="service-chip" data-value="送物">📦 送物</div>
+                <div class="service-chip" data-value="送餐">🍽️ 送餐</div>
+                <div class="service-chip" data-value="前台服务">🛎️ 前台</div>
+                <div class="service-chip" data-value="其他">📝 其他</div>
+              </div>
+              <input type="hidden" id="category" value="维修">
+            </div>
+            <div class="form-group">
+              <label for="urgency">紧急程度</label>
+              <select id="urgency"><option value="normal">一般</option><option value="urgent">紧急</option></select>
+            </div>
+            <div class="form-group">
+              <label for="description">详细描述 *</label>
+              <textarea id="description" placeholder="请描述您的需求" required></textarea>
+            </div>
+            <button type="submit" class="btn btn-primary btn-block">提交需求</button>
+          </form>
+        </div>
+      </div>
+
+      <div class="loading" id="loading">提交中...</div>
+    </main>
+  </div>
+
+  <script>
+    const API_BASE='/api/domhotel-suite';
+    let currentRoom='';
+    let currentGuestName='';
+    let currentGuestId='';
+
+    // 打开企微客服（带场景值）
+    async function openKf(){
+      const room=currentRoom || 'unknown';
+      const scene='room_'+room;
+      
+      try{
+        // 调用API获取带场景值的客服链接
+        const res=await fetch(API_BASE+'/kf/contact_way',{
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({scene:scene})
+        });
+        const data=await res.json();
+        
+        if(data.url){
+          // 检查是否在微信内
+          if(isInWeChat()){
+            window.location.href=data.url;
+          }else{
+            // 不在微信内，提示用户
+            alert('请在微信内打开此页面，才能联系客服');
+            // 复制链接到剪贴板
+            navigator.clipboard.writeText(data.url).then(()=>{
+              alert('客服链接已复制，请在微信内打开');
+            }).catch(()=>{
+              alert('请在微信内打开此链接：\n'+data.url);
+            });
+          }
+        }else{
+          // 如果API失败，使用默认链接
+          window.location.href='https://work.weixin.qq.com/kfid/kfca76c9ef7d49ce4db';
+        }
+      }catch(e){
+        // 如果API失败，使用默认链接
+        window.location.href='https://work.weixin.qq.com/kfid/kfca76c9ef7d49ce4db';
+      }
+    }
+    
+    // 检查是否在微信内
+    function isInWeChat(){
+      return /micromessenger/i.test(navigator.userAgent||'');
+    }
+
+    // v1.4.1: 客人身份识别策略
+    // 1. URL 参数带 guest_id（微信 OAuth 回调）→ 直接用
+    // 2. localStorage 有 guest_id → 直接用
+    // 3. 在微信内且配置了公众号 → 尝试 OAuth 获取 OpenID
+    // 4. 以上都没有 → 生成随机 UUID
+    async function initGuestId(){
+      const params=new URLSearchParams(window.location.search);
+      // 1. URL 参数
+      const urlId=params.get('guest_id');
+      if(urlId){localStorage.setItem('domhotel_guest_id',urlId);return urlId;}
+      // 2. localStorage
+      const saved=localStorage.getItem('domhotel_guest_id');
+      if(saved)return saved;
+      // 3. 在微信内 → 检查是否配置了公众号
+      if(isInWeChat() && !sessionStorage.getItem('guest_oauth_checked')){
+        sessionStorage.setItem('guest_oauth_checked','1');
+        try{
+          // 先检查公众号是否配置
+          const check=await fetch(API_BASE+'/guest/oauth/init',{method:'GET',redirect:'manual'});
+          // 如果返回 307/302 说明已配置，跟随跳转
+          if(check.redirected || check.status===307 || check.status===302){
+            window.location.href=check.headers.get('location')||API_BASE+'/guest/oauth/init';
+            return null;
+          }
+        }catch(e){
+          // OAuth 不可用，继续用随机 UUID
+        }
+      }
+      // 4. 随机 UUID
+      const uuid='guest-'+(crypto.randomUUID?crypto.randomUUID():(Date.now()+'-'+Math.random().toString(36).substr(2,9)));
+      localStorage.setItem('domhotel_guest_id',uuid);
+      return uuid;
+    }
+
+    function isInWeChat(){
+      return /micromessenger/i.test(navigator.userAgent||'');
+    }
+
+    function showMessage(text,type){
+      const el=document.getElementById('message');
+      el.innerHTML=text;
+      el.className='message '+(type==='success'?'success':'error');
+      setTimeout(()=>{el.style.display='none';},8000);
+    }
+    function hideMessage(){document.getElementById('message').className='message';document.getElementById('message').style.display='';}
+
+    async function apiPost(path,body){
+      const res=await fetch(API_BASE+path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+      const data=await res.json().catch(()=>({}));
+      if(!res.ok)throw new Error(data.detail||data.error||data.message||'请求失败');
+      return data;
+    }
+
+    function statusText(s){return{pending:'待处理',assigned:'已派单',in_progress:'处理中',processing:'处理中',done:'已完成'}[s]||s;}
+    function statusClass(s){if(s==='done')return'status-done';if(s==='pending')return'status-pending';return'status-processing';}
+
+    async function enterRoom(){
+      const room=document.getElementById('room_no_input').value.trim();
+      if(!room){alert('请输入房间号');return;}
+      currentRoom=room;
+      currentGuestName=document.getElementById('guest_name_input').value.trim();
+      // 确保 guest_id 已初始化
+      if(!currentGuestId){
+        currentGuestId=await initGuestId();
+      }
+      localStorage.setItem('domhotel_room',currentRoom);
+      localStorage.setItem('domhotel_name',currentGuestName);
+      showMainSection();
+    }
+
+    function switchRoom(){
+      currentRoom='';currentGuestName='';
+      document.getElementById('roomInputSection').style.display='';
+      document.getElementById('mainSection').style.display='none';
+      document.getElementById('room_no_input').value='';
+      document.getElementById('guest_name_input').value='';
+      document.getElementById('room_no_input').focus();
+    }
+
+    function showMainSection(){
+      document.getElementById('roomInputSection').style.display='none';
+      document.getElementById('mainSection').style.display='';
+      document.getElementById('displayRoomNo').textContent=currentRoom;
+      document.getElementById('displayGuestName').textContent=currentGuestName?'欢迎，'+currentGuestName:'';
+      loadOrders();
+    }
+
+    async function loadOrders(){
+      const box=document.getElementById('ordersList');
+      box.innerHTML='<div class="loading" style="display:block">加载中...</div>';
+      try{
+        const res=await apiPost('/guest/orders/query',{guest_id:currentGuestId});
+        if(!res.orders||!res.orders.length){
+          box.innerHTML='<div style="text-align:center;padding:20px;color:var(--ink-soft);font-size:13px">暂无需求单</div>';
+          return;
+        }
+        box.innerHTML=res.orders.map(o=>renderOrder(o)).join('');
+      }catch(e){
+        box.innerHTML='<div style="text-align:center;padding:20px;color:var(--bad);font-size:13px">加载失败：'+e.message+'</div>';
+      }
+    }
+
+    function renderOrder(o){
+      let actions='';
+      if(['processing','in_progress','pending','assigned'].includes(o.status)){
+        actions+='<button class="btn btn-sm btn-ok" onclick="confirmDone(\''+o.wo_id+'\')">确认完成</button>';
+      }
+      if(o.status==='done'&&!o.guest_rating){
+        actions+='<button class="btn btn-sm btn-warn" onclick="showRate(\''+o.wo_id+'\')">评价</button>';
+      }
+      const stars=o.guest_rating?'★'.repeat(o.guest_rating)+'☆'.repeat(5-o.guest_rating):'';
+      return '<div class="order-card">'+
+        '<div class="order-header"><span class="order-type">'+(o.work_type||'')+'</span>'+
+        '<span class="order-status '+statusClass(o.status)+'">'+statusText(o.status)+'</span></div>'+
+        '<div class="order-desc">'+(o.description||'—')+'</div>'+
+        '<div class="order-meta">工单号：'+o.wo_id+'<br>处理人：'+(o.assignee||'未分配')+'<br>提交时间：'+(o.created_at||'')+
+        (o.completed_at?'<br>完成时间：'+o.completed_at:'')+
+        (o.guest_rating?'<br>我的评价：'+stars+' '+(o.guest_comment||''):'')+'</div>'+
+        (actions?'<div class="order-actions">'+actions+'</div>':'')+
+        '<div id="rate-box-'+o.wo_id+'" style="display:none;margin-top:10px">'+
+        '<div style="margin-bottom:6px">'+[1,2,3,4,5].map(i=>'<span class="star" onclick="setRating(\''+o.wo_id+'\','+i+')">★</span>').join('')+'</div>'+
+        '<input type="text" id="comment-'+o.wo_id+'" placeholder="评价留言（选填）" style="padding:8px;font-size:13px;margin-bottom:6px">'+
+        '<button class="btn btn-sm btn-warn" onclick="submitRate(\''+o.wo_id+'\')">提交评价</button></div></div>';
+    }
+
+    async function confirmDone(woId){
+      try{const res=await apiPost('/guest/orders/'+woId+'/confirm',{guest_id:currentGuestId});showMessage('✅ '+(res.message||'已确认'),'success');loadOrders();}
+      catch(e){showMessage('❌ '+e.message,'error');}
+    }
+
+    function showRate(woId){document.getElementById('rate-box-'+woId).style.display='block';}
+
+    let ratings={};
+    function setRating(woId,r){
+      ratings[woId]=r;
+      document.querySelectorAll('#rate-box-'+woId+' .star').forEach((s,i)=>s.classList.toggle('active',i<r));
+    }
+
+    async function submitRate(woId){
+      const rating=ratings[woId];
+      if(!rating){alert('请选择评分');return;}
+      const comment=(document.getElementById('comment-'+woId)||{}).value||'';
+      try{const res=await apiPost('/guest/orders/'+woId+'/rate',{guest_id:currentGuestId,rating,comment});showMessage('✅ '+(res.message||'评价已提交'),'success');loadOrders();}
+      catch(e){showMessage('❌ '+e.message,'error');}
+    }
+
+    document.querySelectorAll('.service-chip').forEach(chip=>{
+      chip.addEventListener('click',()=>{
+        document.querySelectorAll('.service-chip').forEach(c=>c.classList.remove('active'));
+        chip.classList.add('active');
+        document.getElementById('category').value=chip.dataset.value;
+      });
+    });
+
+    document.getElementById('requestForm').addEventListener('submit',async(e)=>{
+      e.preventDefault();hideMessage();
+      document.getElementById('loading').style.display='block';
+      const category=document.getElementById('category').value;
+      const urgency=document.getElementById('urgency').value;
+      const description=document.getElementById('description').value.trim();
+      try{
+        const result=await apiPost('/h5/guest/request',{
+          room_no:currentRoom,guest_name:currentGuestName,guest_id:currentGuestId,
+          work_type:category,urgency,description
+        });
+        if(result.guest_id&&!currentGuestId){
+          currentGuestId=result.guest_id;
+          localStorage.setItem('domhotel_guest_id',currentGuestId);
+        }
+        showMessage('✅ '+(result.message||'提交成功'),'success');
+        document.getElementById('requestForm').reset();
+        document.querySelectorAll('.service-chip').forEach(c=>c.classList.remove('active'));
+        document.querySelector('.service-chip[data-value="维修"]').classList.add('active');
+        document.getElementById('category').value='维修';
+        loadOrders();
+      }catch(err){showMessage('❌ '+err.message,'error');}
+      finally{document.getElementById('loading').style.display='none';}
+    });
+
+    // 初始化
+    (async function(){
+      const params=new URLSearchParams(window.location.search);
+      const room=params.get('room');
+      const name=params.get('name');
+
+      // 初始化 guest_id（异步，可能需要检查 OAuth 配置）
+      currentGuestId=await initGuestId();
+      if(!currentGuestId)return; // 正在跳转 OAuth
+
+      if(room){
+        currentRoom=room;currentGuestName=name||'';
+        localStorage.setItem('domhotel_room',currentRoom);
+        if(name)localStorage.setItem('domhotel_name',currentGuestName);
+        showMainSection();
+      }else{
+        const savedRoom=localStorage.getItem('domhotel_room');
+        const savedName=localStorage.getItem('domhotel_name');
+        if(savedRoom){
+          currentRoom=savedRoom;currentGuestName=savedName||'';
+          showMainSection();
+        }
+      }
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>客人二维码管理 - 桂山大酒店</title>
+  <style>
+    :root{--primary:#b08d4f;--bg:#f7f5f0;--card:#fff;--ink:#333;--line:#e0dcd0;}
+    *{box-sizing:border-box}
+    body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;background:var(--bg);color:var(--ink);padding:20px}
+    .container{max-width:720px;margin:0 auto}
+    h1{font-size:20px;margin-bottom:6px}
+    .subtitle{font-size:13px;color:#888;margin-bottom:20px}
+    .card{background:var(--card);border-radius:12px;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,.06);margin-bottom:16px}
+    .form-row{display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap}
+    input[type="text"],select{flex:1;min-width:120px;padding:10px 12px;border:1px solid var(--line);border-radius:8px;font-size:14px}
+    button{padding:10px 20px;background:var(--primary);color:#fff;border:none;border-radius:8px;font-size:14px;cursor:pointer}
+    button:hover{opacity:.9}
+    .qr-wrap{text-align:center;padding:20px}
+    .qr-wrap img,.qr-wrap canvas{max-width:260px;border:1px solid var(--line);border-radius:8px}
+    .url-box{background:#f5f5f5;padding:10px;border-radius:6px;font-size:12px;word-break:break-all;margin-top:12px}
+    .tips{font-size:12px;color:#666;line-height:1.8;margin-top:12px}
+    .batch-list{display:flex;flex-wrap:wrap;gap:10px;max-height:400px;overflow:auto;padding:10px;background:#fafafa;border-radius:8px}
+    .batch-item{width:calc(50% - 5px);text-align:center;font-size:12px}
+    .batch-item canvas{width:100%;max-width:140px;border:1px solid var(--line);border-radius:6px}
+    @media(max-width:600px){.batch-item{width:100%}}
+    .error{color:#c00;font-size:12px;margin-top:8px}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>客人需求二维码管理</h1>
+    <div class="subtitle">为每个房间生成专属二维码，贴到房间里供客人扫码提交需求</div>
+
+    <div class="card">
+      <h3>单个房间二维码</h3>
+      <div class="form-row">
+        <input type="text" id="roomInput" placeholder="输入房号，例如 1206">
+        <button onclick="generateSingle()">生成二维码</button>
+        <button onclick="downloadSingle()" id="dlBtn" disabled>下载 PNG</button>
+      </div>
+      <div class="qr-wrap" id="singleResult" style="display:none">
+        <div id="qrContainer"></div>
+        <div class="url-box" id="qrUrl"></div>
+      </div>
+      <div class="error" id="singleError"></div>
+    </div>
+
+    <div class="card">
+      <h3>批量生成</h3>
+      <div class="form-row">
+        <input type="text" id="roomList" placeholder="房号列表，逗号分隔，例如 1201,1202,1203" style="flex:2">
+        <button onclick="generateBatch()">批量生成</button>
+      </div>
+      <div class="batch-list" id="batchResult"></div>
+      <div class="error" id="batchError"></div>
+    </div>
+
+    <div class="card">
+      <h3>通用入口二维码</h3>
+      <p class="tips">所有房间共用一张二维码，客人扫码后手动填写房号。</p>
+      <div class="qr-wrap">
+        <div id="commonQrContainer"></div>
+        <div class="url-box" id="commonUrl"></div>
+      </div>
+    </div>
+
+    <div class="card tips">
+      <strong>使用建议：</strong><br>
+      1. 推荐「一房一码」：把带 ?room=房号 的二维码打印后贴在房间桌上或床头柜；<br>
+      2. 客人扫码后页面自动填入房号，直接选需求类型即可提交；<br>
+      3. 提交后自动创建工单并通知到客房部/工程部/前台。
+    </div>
+  </div>
+
+  <script>
+    const BASE_URL='https://guishan.paw.domai.fun/api/domhotel-suite/ui/guest-h5.html';
+    let currentRoom='';
+    let currentImg=null;
+
+    // 用在线 API 生成 QR 码（不依赖本地库）
+    function qrImgUrl(text, size){
+      return 'https://api.qrserver.com/v1/create-qr-code/?size='+size+'x'+size+'&data='+encodeURIComponent(text);
+    }
+
+    function makeQr(container, text, size){
+      container.innerHTML='';
+      const img=document.createElement('img');
+      img.src=qrImgUrl(text, size);
+      img.width=size; img.height=size;
+      img.style.border='1px solid #ddd'; img.style.borderRadius='8px';
+      container.appendChild(img);
+      return img;
+    }
+
+    function renderCommon(){
+      document.getElementById('commonUrl').textContent=BASE_URL;
+      makeQr(document.getElementById('commonQrContainer'), BASE_URL, 240);
+    }
+
+    function generateSingle(){
+      const room=document.getElementById('roomInput').value.trim();
+      const errEl=document.getElementById('singleError');
+      errEl.textContent='';
+      if(!room){errEl.textContent='请输入房号';return;}
+      currentRoom=room;
+      const url=`${BASE_URL}?room=${encodeURIComponent(room)}`;
+      document.getElementById('qrUrl').textContent=url;
+      document.getElementById('singleResult').style.display='block';
+      const container=document.getElementById('qrContainer');
+      container.innerHTML='';
+      currentImg=makeQr(container, url, 260);
+      document.getElementById('dlBtn').disabled=false;
+    }
+
+    function downloadSingle(){
+      if(!currentImg)return;
+      const a=document.createElement('a');
+      a.href=currentImg.src;
+      a.download=`guest-qr-${currentRoom}.png`;
+      document.body.appendChild(a);a.click();a.remove();
+    }
+
+    function generateBatch(){
+      const list=document.getElementById('roomList').value.split(/[,，]/).map(s=>s.trim()).filter(Boolean);
+      const errEl=document.getElementById('batchError');
+      errEl.textContent='';
+      if(!list.length){errEl.textContent='请输入房号';return;}
+      const box=document.getElementById('batchResult');
+      box.innerHTML='';
+      list.forEach(room=>{
+        const url=`${BASE_URL}?room=${encodeURIComponent(room)}`;
+        const item=document.createElement('div');
+        item.className='batch-item';
+        item.innerHTML=`<div style="font-weight:600;margin-bottom:4px">${room}</div><div class="canvas-wrap"></div><div><a class="dl" href="#">下载</a></div>`;
+        box.appendChild(item);
+        const wrap=item.querySelector('.canvas-wrap');
+        const img=makeQr(wrap, url, 140);
+        item.querySelector('.dl').onclick=function(e){
+          e.preventDefault();
+          const a=document.createElement('a');
+          a.href=img.src;
+          a.download=`guest-qr-${room}.png`;
+          document.body.appendChild(a);a.click();a.remove();
+        };
+      });
+    }
+
+    renderCommon();
+  </script>
+</body>
+</html>

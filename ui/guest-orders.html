@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>我的需求单 - 桂山大酒店</title>
+  <style>
+    :root{--primary:#b08d4f;--bg:#f7f5f0;--card:#fff;--ink:#333;--line:#e0dcd0;--ok:#3e7a52;--warn:#b3651f;--bad:#a4432f;}
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;background:var(--bg);color:var(--ink);padding:20px;min-height:100vh}
+    .container{max-width:520px;margin:0 auto}
+    h1{font-size:20px;margin-bottom:6px}
+    .subtitle{font-size:13px;color:#888;margin-bottom:20px}
+    .card{background:var(--card);border-radius:12px;padding:16px;box-shadow:0 2px 8px rgba(0,0,0,.06);margin-bottom:14px}
+    .form-row{display:flex;gap:10px;margin-bottom:12px}
+    input{flex:1;padding:10px 12px;border:1px solid var(--line);border-radius:8px;font-size:14px}
+    button{padding:10px 20px;background:var(--primary);color:#fff;border:none;border-radius:8px;font-size:14px;cursor:pointer}
+    button:disabled{opacity:.6}
+    .order{border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:10px;background:#fff}
+    .order-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+    .wo-id{font-size:11px;color:#888}
+    .status{padding:3px 10px;border-radius:999px;font-size:12px;color:#fff}
+    .status.pending{background:var(--warn)}
+    .status.processing{background:var(--primary)}
+    .status.done{background:var(--ok)}
+    .type{font-size:16px;font-weight:600;margin-bottom:4px}
+    .desc{font-size:13px;color:#666;margin-bottom:10px}
+    .meta{font-size:12px;color:#888;line-height:1.8}
+    .actions{margin-top:12px;display:flex;gap:8px;flex-wrap:wrap}
+    .actions button{padding:8px 14px;font-size:13px}
+    .btn-secondary{background:#fff;color:var(--ink);border:1px solid var(--line)}
+    .rating{display:flex;gap:6px;font-size:24px;margin:10px 0}
+    .star{cursor:pointer;color:#ddd}
+    .star.active{color:var(--primary)}
+    .empty{text-align:center;padding:40px 20px;color:#888}
+    .toast{position:fixed;top:20px;left:50%;transform:translateX(-50%);background:#333;color:#fff;padding:10px 20px;border-radius:8px;font-size:13px;display:none;z-index:100}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>我的需求单</h1>
+    <div class="subtitle">查询并跟踪您在酒店提交的服务需求</div>
+
+    <div class="card" id="queryCard">
+      <div class="form-row">
+        <input type="text" id="roomNo" placeholder="房号，例如 1206">
+        <input type="text" id="guestName" placeholder="姓名（可选）">
+        <button onclick="queryOrders()">查询</button>
+      </div>
+    </div>
+
+    <div id="ordersList"></div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    const API='/api/domhotel-suite';
+
+    function showToast(msg){
+      const t=document.getElementById('toast');
+      t.textContent=msg;t.style.display='block';
+      setTimeout(()=>t.style.display='none',2500);
+    }
+
+    function statusText(s){
+      return {pending:'待处理',processing:'处理中',done:'已完成'}[s]||s;
+    }
+
+    async function apiPost(path, body){
+      const r=await fetch(API+path,{
+        method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify(body)
+      });
+      return await r.json();
+    }
+
+    async function queryOrders(){
+      const roomNo=document.getElementById('roomNo').value.trim();
+      const guestName=document.getElementById('guestName').value.trim();
+      if(!roomNo){showToast('请输入房号');return;}
+      const box=document.getElementById('ordersList');
+      box.innerHTML='<div class="empty">查询中…</div>';
+      try{
+        const res=await apiPost('/guest/orders/query',{room_no:roomNo,guest_name:guestName});
+        if(!res.ok){showToast(res.detail||'查询失败');box.innerHTML='';return;}
+        if(!res.orders||!res.orders.length){box.innerHTML='<div class="empty">暂无需求单</div>';return;}
+        box.innerHTML=res.orders.map(o=>renderOrder(o,roomNo)).join('');
+      }catch(e){showToast('网络错误');box.innerHTML='';}
+    }
+
+    function renderOrder(o,roomNo){
+      let actions='';
+      if(o.status==='processing'||o.status==='pending'){
+        actions+=`<button onclick="confirmDone('${o.wo_id}','${roomNo}')">确认完成</button>`;
+      }
+      if(o.status==='done'&&!o.guest_rating){
+        actions+=`<button class="btn-secondary" onclick="showRate('${o.wo_id}','${roomNo}')">评价</button>`;
+      }
+      return `
+        <div class="order">
+          <div class="order-header">
+            <span class="wo-id">${o.wo_id}</span>
+            <span class="status ${o.status}">${statusText(o.status)}</span>
+          </div>
+          <div class="type">${o.work_type}</div>
+          <div class="desc">${o.description||'—'}</div>
+          <div class="meta">
+            房号：${o.room_no}<br>
+            处理人：${o.assignee}<br>
+            提交时间：${o.created_at}<br>
+            ${o.completed_at?'完成时间：'+o.completed_at+'<br>':''}
+            ${o.guest_rating?'我的评分：'+'★'.repeat(o.guest_rating)+' '+o.guest_comment:' '}
+          </div>
+          <div class="actions">${actions}</div>
+          <div id="rate-${o.wo_id}" style="display:none;margin-top:10px">
+            <div class="rating" id="stars-${o.wo_id}">
+              ${[1,2,3,4,5].map(i=>`<span class="star" onclick="setRating('${o.wo_id}',${i})">★</span>`).join('')}
+            </div>
+            <input type="text" id="comment-${o.wo_id}" placeholder="请输入评价（可选）" style="width:100%;margin-bottom:8px">
+            <button onclick="submitRate('${o.wo_id}','${roomNo}')">提交评价</button>
+          </div>
+        </div>
+      `;
+    }
+
+    async function confirmDone(woId,roomNo){
+      const res=await apiPost(`/guest/orders/${woId}/confirm`,{room_no:roomNo});
+      showToast(res.ok?res.message:(res.detail||'确认失败'));
+      if(res.ok) queryOrders();
+    }
+
+    function showRate(woId){
+      document.getElementById('rate-'+woId).style.display='block';
+    }
+
+    let ratings={};
+    function setRating(woId,r){
+      ratings[woId]=r;
+      const stars=document.querySelectorAll('#stars-'+woId+' .star');
+      stars.forEach((s,i)=>s.classList.toggle('active',i<r));
+    }
+
+    async function submitRate(woId,roomNo){
+      const rating=ratings[woId];
+      if(!rating){showToast('请选择评分');return;}
+      const comment=document.getElementById('comment-'+woId).value;
+      const res=await apiPost(`/guest/orders/${woId}/rate`,{room_no:roomNo,rating,comment});
+      showToast(res.ok?res.message:(res.detail||'评价失败'));
+      if(res.ok) queryOrders();
+    }
+
+    // 支持 URL 参数预填房号
+    (function(){
+      const params=new URLSearchParams(window.location.search);
+      const room=params.get('room');
+      if(room){
+        document.getElementById('roomNo').value=room;
+        queryOrders();
+      }
+    })();
+  </script>
+</body>
+</html>

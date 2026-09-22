@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>客服会话质检 - 桂山大酒店</title>
+  <style>
+    :root{--primary:#b08d4f;--bg:#f7f5f0;--card:#fff;--ink:#333;--line:#e0dcd0;--user:#e3f2fd;--ai:#f1f8e9;--human:#fff3e0;--handoff:#ffebee;}
+    *{box-sizing:border-box}
+    body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;background:var(--bg);color:var(--ink);padding:20px}
+    .container{max-width:900px;margin:0 auto}
+    h1{font-size:20px;margin-bottom:6px}
+    .subtitle{font-size:13px;color:#888;margin-bottom:20px}
+    .card{background:var(--card);border-radius:12px;padding:16px;box-shadow:0 2px 8px rgba(0,0,0,.06);margin-bottom:14px}
+    .session{display:flex;justify-content:space-between;align-items:center;padding:12px;border:1px solid var(--line);border-radius:8px;margin-bottom:8px;cursor:pointer;background:#fff}
+    .session:hover{border-color:var(--primary)}
+    .session-id{font-size:13px;font-weight:600;color:#333}
+    .session-meta{font-size:12px;color:#888}
+    .msg{padding:10px 12px;border-radius:8px;margin-bottom:8px;font-size:13px;line-height:1.5}
+    .msg.user{background:var(--user)}
+    .msg.ai{background:var(--ai)}
+    .msg.human{background:var(--human)}
+    .msg.handoff{background:var(--handoff);font-weight:600}
+    .msg .role{font-size:11px;color:#666;margin-bottom:2px}
+    .msg .ts{font-size:11px;color:#999;margin-top:4px}
+    .empty{text-align:center;padding:40px;color:#888}
+    .back{color:var(--primary);cursor:pointer;font-size:13px;margin-bottom:10px}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>客服会话质检</h1>
+    <div class="subtitle">查看微信客服会话中 AI/人工/接管留痕</div>
+
+    <div class="card" id="listCard">
+      <div id="sessionList"><div class="empty">加载中…</div></div>
+    </div>
+
+    <div class="card" id="detailCard" style="display:none">
+      <div class="back" onclick="showList()">← 返回列表</div>
+      <div id="detailTitle" style="font-weight:600;margin-bottom:12px"></div>
+      <div id="messageList"></div>
+    </div>
+  </div>
+
+  <script>
+    const API='/api/domhotel-suite';
+
+    function roleLabel(r){
+      return {user:'客人',ai:'AI',human:'人工客服',handoff:'接管事件'}[r]||r;
+    }
+
+    async function loadSessions(){
+      const r=await fetch(API+'/admin/kf-sessions');
+      const data=await r.json();
+      const box=document.getElementById('sessionList');
+      if(!data.ok||!data.sessions||!data.sessions.length){
+        box.innerHTML='<div class="empty">暂无会话记录</div>';return;
+      }
+      box.innerHTML=data.sessions.map(s=>`
+        <div class="session" onclick="loadDetail('${s.external_userid}')">
+          <div>
+            <div class="session-id">${s.external_userid}</div>
+            <div class="session-meta">最后消息：${roleLabel(s.last_role)} · ${s.last_ts}</div>
+          </div>
+          <div style="font-size:12px;color:#666;max-width:300px;text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.last_content}</div>
+        </div>
+      `).join('');
+    }
+
+    async function loadDetail(uid){
+      document.getElementById('listCard').style.display='none';
+      document.getElementById('detailCard').style.display='block';
+      document.getElementById('detailTitle').textContent='会话详情：'+uid;
+      const r=await fetch(API+'/admin/kf-sessions/'+encodeURIComponent(uid)+'?limit=100');
+      const data=await r.json();
+      const box=document.getElementById('messageList');
+      if(!data.ok||!data.messages||!data.messages.length){
+        box.innerHTML='<div class="empty">无消息</div>';return;
+      }
+      box.innerHTML=data.messages.map(m=>`
+        <div class="msg ${m.role}">
+          <div class="role">${roleLabel(m.role)}</div>
+          <div>${escapeHtml(m.content)}</div>
+          <div class="ts">${m.ts}</div>
+        </div>
+      `).join('');
+    }
+
+    function showList(){
+      document.getElementById('listCard').style.display='block';
+      document.getElementById('detailCard').style.display='none';
+    }
+
+    function escapeHtml(t){
+      const d=document.createElement('div');d.textContent=t||'';return d.innerHTML;
+    }
+
+    loadSessions();
+  </script>
+</body>
+</html>

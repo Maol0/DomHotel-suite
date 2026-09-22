@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>知识库管理 - 桂山大酒店</title>
+  <style>
+    :root{--primary:#b08d4f;--bg:#f7f5f0;--card:#fff;--ink:#333;--line:#e0dcd0;}
+    *{box-sizing:border-box}
+    body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;background:var(--bg);color:var(--ink);padding:20px}
+    .container{max-width:900px;margin:0 auto}
+    h1{font-size:20px;margin-bottom:6px}
+    .subtitle{font-size:13px;color:#888;margin-bottom:16px}
+    .card{background:var(--card);border-radius:12px;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,.06);margin-bottom:16px}
+    textarea{width:100%;min-height:400px;padding:12px;border:1px solid var(--line);border-radius:8px;font-size:14px;line-height:1.6;resize:vertical}
+    .actions{display:flex;gap:10px;margin-top:16px;align-items:center}
+    button{padding:10px 20px;background:var(--primary);color:#fff;border:none;border-radius:8px;font-size:14px;cursor:pointer}
+    button:disabled{opacity:.6}
+    .tips{font-size:12px;color:#666;line-height:1.8}
+    .status{padding:8px 12px;border-radius:6px;font-size:13px;display:none}
+    .status.ok{background:#e8f5e9;color:#2e7d32}
+    .status.err{background:#ffebee;color:#c62828}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>酒店知识库管理</h1>
+    <div class="subtitle">编辑后 AI 客服回答客人问题时将参考以下内容</div>
+
+    <div class="card">
+      <textarea id="kbContent" placeholder="# 桂山大酒店知识库
+
+## 早餐
+- 时间：06:30 - 10:00
+- 地点：1 楼西餐厅
+..."></textarea>
+      <div class="actions">
+        <button onclick="saveKb()" id="saveBtn">保存知识库</button>
+        <button onclick="loadKb()" class="btn-secondary">刷新</button>
+        <div class="status" id="status"></div>
+      </div>
+    </div>
+
+    <div class="card tips">
+      <strong>使用说明：</strong><br>
+      1. 使用 Markdown 格式，建议按 ## 标题分段；<br>
+      2. 客人问设施、政策、周边问题时，AI 会自动检索相关段落；<br>
+      3. 保存后立即生效，无需重启。
+    </div>
+  </div>
+
+  <script>
+    const API='/api/domhotel-suite';
+
+    function showStatus(text,isErr){
+      const s=document.getElementById('status');
+      s.textContent=text;
+      s.className='status '+(isErr?'err':'ok');
+      s.style.display='block';
+      setTimeout(()=>s.style.display='none',3000);
+    }
+
+    async function loadKb(){
+      try{
+        const r=await fetch(API+'/admin/knowledge-base');
+        const data=await r.json();
+        if(data.ok) document.getElementById('kbContent').value=data.content||'';
+        else showStatus(data.detail||'加载失败',true);
+      }catch(e){showStatus('网络错误',true);}
+    }
+
+    async function saveKb(){
+      const btn=document.getElementById('saveBtn');
+      btn.disabled=true;
+      try{
+        const r=await fetch(API+'/admin/knowledge-base',{
+          method:'POST',headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({content:document.getElementById('kbContent').value})
+        });
+        const data=await r.json();
+        if(data.ok) showStatus('保存成功');
+        else showStatus(data.detail||'保存失败',true);
+      }catch(e){showStatus('网络错误',true);}
+      btn.disabled=false;
+    }
+
+    loadKb();
+  </script>
+</body>
+</html>

@@ -1,0 +1,69 @@
+# Secrets and runtime credentials
+*.secret
+secret/
+secrets/
+*.key
+.env
+.env.local
+
+# Runtime data and logs
+workorders/
+logs/
+*.log
+log/
+
+# Node.js
+node_modules/
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Agent skill config (may contain internal_api_key)
+agent/skills/config.json
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Build artifacts
+dist/
+build/
+coverage/
+
+# Python caches
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# Editor / patch backups (开发过程中产生的 .bak, 绝不入库)
+*.bak
+*.orig
+*.rej
+
+# 运行时数据 (SQLite / JSON 落盘 / 会话 / 快照) —— 绝不入库
+data/
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+*.jsonl
+snapshots/
+wecom_runtime_config.json
+auth_log.json
+chat_sessions.json
+customers.json
+guest_profiles.json
+kf_sessions.jsonl
+kf_state.json
+request_drafts.json
+
+# 打包产物 (旧 zip)
+ui/*.zip
+*.zip

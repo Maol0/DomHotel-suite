@@ -1,0 +1,53 @@
+{
+  "id": "domhotel-suite",
+  "name": "酒店房务工作台",
+  "version": "1.6.3",
+  "description": "DomHotel 智能酒店套件 (整合版): HUB 首启配置向导 (管理员→酒店名称→房态批量生成) + 前台接待登记 (入住/退房/CSV 导出, 联动房态) + 房态工作台 (楼栋→楼层→房型→房号四层看板、工单 Kanban、客房排程、交接班、4 个 AI 助手一键部署、企微同步、4 档权限角色系统) + SQLite 原子存储 (根治并发丢写) + 企微微信客服 (客人微信进来 AI 应答、报修直达内部员工)",
+  "author": "DomHotel Suite Team",
+  "type": "app",
+  "entry": {
+    "backend": "backend/__init__.py",
+    "frontend": "ui/plugin-entry.js"
+  },
+  "qwenpaw_version": {
+    "min": "2.0.0"
+  },
+  "changelog": "v1.6.3 (2026-09-22) 通知注册握手根治「建单不通知」(work_orders 加载时把 _notify_staff_wo_change 注入 svc, 不再依赖 sys.modules 名称解析) + 部门群按 target_dept 选各自 bot 发送(根治 hotel-wecom-assistant 不在群内的静默失败) + 发布包脱敏(移除内置企微 CorpID/AgentSecret/doc_id 兜底常量, 改纯 env/运行时配置)。\n\nv1.6.2 补货数据同步修复 + 通知可观测:\n  - 修复 safe_sync 协程从未 await 导致「补货 supplies_log 智能表格不同步」(safe_sync_quiet / safe_sync_quiet_async 现真正 await/调度)\n  - 通知链路加 stderr 可观测 trace ([WO通知] 个人/群 发送·结果·失败), 定位「企微收不到通知」到底卡在哪一跳 (插件 logger 不进容器日志)\n\nv1.6.1 工单全生命周期收口 + 通知修复:\n  - 建单全量统一: guest_portal 报修/需求/H5、wecom_kf 客服报修、guest_service H5 全部改走 work_order_svc.svc_create_work_order (建单+派单+企微表格同步+员工卡片+客人回执一致)\n  - 确认/评价收口: 客人确认完成 → svc_complete_work_order(force), 评价补 safe_sync 同步企微表格\n  - 退房即建清洁工单: 前台 checkin 退房 (checkout_checkin) 自动建 housekeeping 清洁单 (与房态退房一致)\n  - 部门群通知修根因: 群消息改走真正拥有该群 chatid 的网关 bot (NOTIFY_GROUP_AGENT_ID, 默认 hotel-wecom-assistant); 发送失败 raise + 显式告警日志, 不再静默丢通知\n  - 客人来单不再自动派单: auto_dispatch=False, 落 pending 交前台确认 / AI 派单 (此前直接指派到人, 前台来不及干预)\n  - 修复: 完成时误覆盖在住房间为「空房」的在住保护 + 报修照片未落库\n\nv1.5.1 对话即工作台 · 酒店业务智能体工具箱:\n  - 新增 hotel_ops_tools 15 个业务智能体工具: 客人侧 5 个 (查自己房/一句话报修送物打扫补货/查工单/对话退房/投诉直达前台) + 员工侧 10 个 (查房态/入住/退房/改房态联动建关单/换房/建单/派单/关单还原空房/查单/今日概览), 对话中 agent 即可完成全部酒店业务\n  - 工具权限内建: 客人凭 external_userid 绑定房间只能动自己的房, 员工操作记 operator 审计; 写操作全部幂等 (重复入住续住确认/2分钟同类型去重/重复关单护栏)\n  - 房态联动与看板一致: 置维修中/待打扫自动建单, 恢复空房自动关单, 维修/清洁单完成自动还原空房 (在住保护)\n  - 4 个部门 agent 模板 (AGENTS.md) 追加业务工具章节, agent 知道何时伸手, 不再让用户转去看板\n  - 修复 v1.5.0 循环导入 bug: wecom_kf 顶层导入 routes._helpers 触发 dispatch 反向依赖导致 wecom 预加载失败, 改为本地等价实现\n\nv1.4.0 SQLite 存储 · 微信客服正确架构 · AI 应答:\n  - 数据层落 SQLite (hotel.db, WAL): 业务表整表写包单事务原子提交, 根治 JSON 整文件重写在并发写入/进程崩溃时造成的丢写与文件损坏 (订单/房态不同步的根源); 对外 API 与 JSON 版完全一致, 首次访问自动迁移 (json 改名 .migrated 留备份), 写计数器落 _meta 表\n  - 微信客服重写为官方正确架构: 回调只收 AES 加密事件通知 (旧版直接解析明文 XML, 配好凭证也收不到消息) → SHA1 验签 + AES-256-CBC 解密拿 Token → sync_msg 增量拉取 (cursor 持久化 kf_state.json 崩溃不丢, msgid 去重) → 逐条处理; 拉取+AI 应答放 BackgroundTasks (企微回调 5s 超时约束)\n  - GET /kf/callback 独立路由: 企微后台保存回调 URL 时的验证请求 (验签+解密 echostr 回明文; 旧版在 @router.post 里判 GET 是死代码)\n  - AI 应答: 客人非命令文本 → QwenPaw 智能体 (默认 hotel-ai-guest-service, 可配 KF_AI_AGENT_ID), 每客人独立 30min 会话, 带房间绑定上下文, 60s 超时, 失败回帮助文案\n  - enter_session 欢迎语: welcome_code (20s 有效) 调 send_msg_on_event, 绑定过房间的客人显示房间号\n  - 内部员工通知: 客人报修建单同时 POST /cgi-bin/message/send 推送 KF_NOTIFY_USERIDS 配置的员工 (需 WECOM_AGENT_ID); 未配置静默跳过\n  - KF 全套配置进运行时配置层 (免改 env 免重启): WECOM_KF_ID / WECOM_KF_TOKEN / WECOM_KF_ENCODING_AES_KEY / KF_AI_AGENT_ID / KF_NOTIFY_USERIDS / WECOM_AGENT_ID\n  - 新增 agent tool wecom_kf_config: 配置/检查微信客服, EncodingAESKey 43 位前置校验, 返回回调 URL 与逐步引导; wecom_status next_step 链尾自动引导下一站 (微信客服)\n  - 企业微信设置面板新增「💬 微信客服」折叠区: 状态徽章 + 后台五步引导 + 回调 URL 回显 + 6 项配置表单 (Token/AESKey 不回显留空不改), 与智能表格共用「💾 保存并检测」\n  - XML 解析硬化: 回调 XML 拒绝 DTD/实体声明 (防实体扩展/XXE, 不引新依赖)\nv1.3.5 智能体一键建表 · 企微接入全流程智能体化:\n  - 新增 agent tool wecom_create_docs: 一键自动创建企微智能表格 (create_doc 建文档 + 自动发现/新建子表 + add_fields 按 schema 建字段, 三级降级 兼容企微 property 校验差异), 并把 doc_id 写入运行时配置 — 用户不再需要手工建表复制 doc_id\n  - wecom_status 新增 force 参数 (默认 true 绕过 60s 探测缓存): 用户刚配完可信 IP / 改完凭证后复查必得最新结果; next_step 引导链全面接入 wecom_create_docs\n  - wecom_config_set 写入成功且链路已通但未配 doc_id 时, next_step 直接引导调用 wecom_create_docs\n  - 企微接入的手工步骤只剩两个 (均为企微安全模型强制, 无 API): ①企微后台创建自建应用拿 Secret; ②企业可信 IP 白名单添加出口 IP — 其余 (凭证写入/建表/字段/doc_id/验证/补推) 全部由智能体代办\n  - 前端企业微信设置面板新增提示: 可直接在 QwenPaw 对话中对智能体说「帮我配置企业微信」走智能体引导流程\nv1.3.4 后台配置 · 企业微信设置面板:\n  - 「⚙️ 后台配置」tab 新增「🏢 企业微信设置」面板 — 表单直配 CorpID / 应用 Secret / 8 张智能表格 doc_id (房态日志·客人日志·工单 3 张核心必填 + 物资日志·员工·部门·房型·楼层 5 张可选), 保存写入运行时配置 (POST /wecom/config, manager 权限), 免改 docker env 免重启立即生效\n  - 检测闭环: 面板内置「💾 保存并检测」(保存后立即 live 探测) 与「🔄 仅重新检测」(?force=1 绕过 60s 缓存); 三态结果 (链路已走通 / 差可信 IP 60020 显示出口 IP 一键复制 / 未走通含凭证错误详情); 标题徽章实时显示链路状态\n  - GET /wecom/config 新增 docs (doc_id 实值, 表单回显只改一张表不必全填) 与 docs_source 逐表溯源 (runtime/env/builtin_default), 向后兼容\n  - 每张表 doc_id 输入框带溯源小标 (● 已覆盖 / ● env / ● 内置), Secret 密码框不回显 (留空=不修改)\n  - 面板内置企微后台四步指引 (创建自建应用拿 Secret → 企业信息拿 CorpID → 建智能表格拿 doc_id → 配企业可信 IP) 与字段对照表\nv1.3.3 向导三体验升级 (已有房间跳过 / AI 对话生成 / 企微硬门禁):\n  - 房间读取现有配置: 向导第 3 步自动读取当前房间数与楼栋/房型分布 (wizard/status 新增 rooms_stats), 已有房间时默认「✅ 沿用现有房间（跳过本步，推荐）」直接下一步, 不再强迫重新生成; 后端 generate_rooms 新增 skip 模式 (无房间时拒绝, 防手改 DOM 绕过)\n  - AI 助手对话生成 JSON: 第 3 步新增「🤖 开始对话」窗口 — 像聊天一样描述酒店结构 (支持中文数字/楼层段/每层不同房型/追加别墅套房自动 VIP 编号), 实时预览 JSON 一键填入配置文件模式; 解析器 10 组单测覆盖 (全局/楼层段/混合追加/楼层列表/无楼层数默认 3 层/非法输入拒绝)\n  - 企微配置硬门禁: 第 4 步未通过真实调用检测 (gettoken + get_sheet) 不能下一步 — 未通过时「下一步」按钮禁用 + 红色状态条显示原因, 完成配置后点「🔄 重新检测」(?force=1 绕过 60s 探测缓存) 立即验证; 三态指引 (全通/60020 可信 IP/未配置) 均带门禁条\nv1.3.2 向导企微导航修复 + 房间配置增强 (智能体 / 配置文件):\n  - 修复: 向导第 3 步生成房间后直接跳完成摘要, 跳过了第 4 步企业微信部署引导 — 现在必经第 4 步 (导航必经, 配置本身可稍后), 按钮文案同步调整\n  - 新增智能体工具 hotel_rooms_setup: 在 QwenPaw 对话中口述酒店结构即可生成房间; 简单场景 mode=auto+buildings/floors/rooms_per_floor/room_type, 复杂楼层房型结构传 config_json; 可顺带保存 hotel_name/address/phone\n  - /wizard/rooms 新增 mode=advanced: 结构化 JSON 配置文件 (buildings[].floors[].rooms[] 每层多房型段 / custom_rooms 自定义房号 / default_room_type), 向导第 3 步新增「配置文件」模式 (粘贴/上传 JSON/一键填示例)\n  - 生成逻辑重构为模块级 generate_rooms() (POST /wizard/rooms 与智能体工具共用同一实现); 输入校验 ValueError 统一转 400\n  - 完成摘要新增房型列表; 重复房号自动去重; 同层多房型段序号连续 (如 1 层 10 标双+2 大床 → 1101-1110 标双, 1111-1112 大床)\n\nv1.3.1 向导初始化权限放行 (修复「以 guest 保存酒店信息 403」):\n  - 根因: 向导是首启初始化流程, 却要求 employee 权限 — 全新部署/未登录时被 403 卡在「保存酒店名称」步\n  - 后端 _wizard_guard: 向导未完成时放行任何身份 (含未登录 guest, 操作人记 wizard_init, 与 auth/setup 首次创建超管同理); 已完成后重跑向导 (=改配置) 才要求 employee 权限\n  - /wizard/hotel、/wizard/rooms、/wizard/complete、/wizard/config 均改用向导守卫; /wizard/reset 保持 super_admin\n  - 前端登录预检同步条件化: 仅向导已完成后重跑才拦; Step 1 未登录显示「初始化模式」说明\n  - 启动流程: setup 已完成但未登录且向导未完成 → 收起登录蒙层直接进向导 (初始化模式), 可随时点右上角登录\n  - 🧭 配置向导入口常显 (未完成时也能随时回向导, 刷新/关掉后不迷失); setup 成功弹窗「稍后」后自动弹向导 (修复首启链路断裂)\n\nv1.3.0 智能体配置工具 (回应「能否通过智能体用企微CLI/阿里云CLI配置」):\n  - 结论: 企微无官方 CLI, 阿里云 CLI 管不了企微; 可信 IP 是企微唯一无 API 的步骤 (须管理员后台手工)。其余配置全部支持智能体代办:\n  - 新增 3 个 agent tools (QwenPaw 智能体对话中可直接调用): wecom_status 查链路状态+出口IP+下一步指引 / wecom_config_set 运行时写入凭证免重启 / wecom_retry_queue 手动补推失败队列\n  - 运行时配置层: 凭证读取改为三层优先级 runtime json > env > 内置默认, 写入即生效 (自动清 token/探测/sheet 缓存)\n  - 新增 POST /wecom/config 端点 (manager 权限): 与 wecom_config_set tool 同一底层, 供脚本/前端调用\n  - GET /wecom/config 与 /wecom/test_ping 改用运行时配置层, 新增 secret_source 溯源 (runtime/env/builtin_default)\n  - wecom_api.py 凭证同步走运行时配置层 (与 tool/HTTP 写入的值保持一致)\n\nv1.2.1 向导保存卡死修复 (Step 2 酒店名称保存 403 无反馈):\n  - 根因: 未登录/登录态失效时向导仍可打开 (顶部入口无登录预检), 保存 POST /wizard/hotel 返回 403 仅短 toast 一闪, 步骤不前进也无步骤内提示\n  - api() 403 与 401 同等待遇: 先 whoami 复查登录态, 失效则同步角色状态+弹登录蒙层+明确提示 (不再误报权限不足)\n  - 向导三重登录防护: openWizard 入口预检 / Step 2·3 保存前预检 (不发无效请求) / 失败后 api() 403 复查兜底\n  - Step 2·3 保存失败在步骤内显示红色错误条 (保留已填内容+明确下一步动作), 不再静默\n  - 登录蒙层 z-index 9999→10001 (高于向导蒙层, 登录框永不被向导盖住)\n  - 登录成功后若向导开着, toast 提示返回向导继续操作\n\nv1.2.0 企微链路可靠化 (对照官方文档实测审计修复):\n  - add_records 请求体修正: 补必填 sheet_id (get_sheet API 自动发现, 无需手查), 去掉非法 record_id 入参 (官方 AddRecord 只有 values)\n  - /wecom/test_ping 新增 live 真实探测 (gettoken+get_sheet 只读): 暴露 60020 可信 IP/凭证失效, 返回出口 IP; 新增 explicitly_configured 区分内置默认凭证与用户显式配置\n  - 向导 Step 4 三态显示: 链路全通(绿) / 可信IP未配(黄, 显示出口 IP+处理步骤) / 未配置(完整指引); 修正环境变量名 (WECOM_DOC_WORK_ORDERS_LOG→WORK_ORDERS, 补 GUESTS_LOG); 新增建表字段对照表与可信 IP 配置步骤\n  - 失败队列路径与 data_layer 数据目录对齐 (不再写原插件工作区)\n  - 后台重试循环: 修复 PluginLoader 下启动失败, 加防重入 + 线程兜底\n  - 数据同步 tab 新增企微状态卡 + 失败队列手动重试按钮\n\nv1.1.0 全局同步版:\n  - HUB 向导新增第 4 步「部署到企业微信」: 实时检测 CorpID/Secret/智能表格 doc_id 配置状态 + 分步部署指引 + 环境变量模板\n  - 全局数据同步: 后端任何模块写表即 bump /data/version, 前端 10s 轮询发现变化后静默刷新所有面板 → 前台电脑/企微手机多端同步\n  - 数据双向打通: 房态看板入住/退房同步写前台接待登记表 (source=rooms_board); 前台登记/退房同步推企微 (rooms_log + guests_log)\n  - /wecom/test_ping 兼容 GET (供向导拉配置状态)\n\nv1.0.0 整合版首发 (整合 hotel-frontdesk-pawapp + DomAI visitor-kiosk + HUB 配置向导):\n  - HUB 配置向导: 首启全屏引导 管理员确认→酒店名称→楼栋/楼层/房型批量生成房态, 顶部「🧭 配置向导」可随时重跑\n  - 前台接待: 客人登记 (姓名/电话/证件/人数/房号/备注), 退房联动房态 在住→待打扫, 登记时 空房→在住, CSV 导出 (带 BOM, Excel 友好)\n  - 房态工作台 (继承): 楼栋→楼层→房型→房号四层级分组, 自动从房号推导楼栋\n  - 工单 Kanban / 客房排程 / 交接班 / 4 个 AI 助手一键部署 / 企微同步\n  - 权限系统: 超管/经理/员工/客人 4 档, 首次启动走 setup 蒙层\n  - 向导 API 与前端均幂等: 已存在房号跳过, 不覆盖在住信息\n  - 修复 v1.3.0 隐藏 bug: set_runtime_config 白名单生成小写 doc 键 (WECOM_DOC_rooms_log) 而 get_docid 读大写键 (WECOM_DOC_ROOMS_LOG), 导致所有 doc_id 运行时写入被拒 — 白名单统一大写 + 写入时 doc 键大小写归一 (智能体传小写也兼容)\n",
+  "agent_permissions": {
+    "enabled": true,
+    "allowed_agents": [
+      "hotel-ai-frontdesk",
+      "hotel-ai-engineering",
+      "hotel-ai-housekeeping",
+      "hotel-ai-guest-service"
+    ],
+    "default_role": "manager"
+  },
+  "meta": {
+    "category": "business",
+    "icon": "🏨",
+    "tags": [
+      "酒店",
+      "房务",
+      "前台接待",
+      "配置向导",
+      "工单",
+      "看板",
+      "企微",
+      "pawapp"
+    ],
+    "pawapp": {
+      "icon": "🏨",
+      "category": "business",
+      "entry_page": "/apps/domhotel-suite",
+      "home_page": "ui/index.html",
+      "launch_scope": "page"
+    },
+    "hide_floating_capsule": true,
+    "permissions": {
+      "chat": true,
+      "storage": true
+    },
+    "settings": []
+  }
+}

@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>桂山大酒店 - 自助服务</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 20px;
+    }
+    .container {
+      max-width: 480px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+      overflow: hidden;
+    }
+    .header {
+      background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+      color: white;
+      padding: 30px 20px;
+      text-align: center;
+    }
+    .header h1 {
+      font-size: 24px;
+      margin-bottom: 8px;
+    }
+    .header p {
+      opacity: 0.9;
+      font-size: 14px;
+    }
+    .welcome {
+      padding: 20px;
+      background: #f8f9fa;
+      border-bottom: 1px solid #eee;
+    }
+    .welcome h2 {
+      font-size: 18px;
+      color: #333;
+      margin-bottom: 10px;
+    }
+    .welcome p {
+      color: #666;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+    .services {
+      padding: 20px;
+    }
+    .service-card {
+      display: flex;
+      align-items: center;
+      padding: 16px;
+      margin-bottom: 12px;
+      background: #f8f9fa;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: all 0.3s;
+      border: 2px solid transparent;
+    }
+    .service-card:hover {
+      background: #e3f2fd;
+      border-color: #2196f3;
+      transform: translateY(-2px);
+    }
+    .service-card.active {
+      background: #e3f2fd;
+      border-color: #2196f3;
+    }
+    .service-icon {
+      font-size: 32px;
+      margin-right: 16px;
+      width: 48px;
+      text-align: center;
+    }
+    .service-info h3 {
+      font-size: 16px;
+      color: #333;
+      margin-bottom: 4px;
+    }
+    .service-info p {
+      font-size: 13px;
+      color: #666;
+    }
+    .service-arrow {
+      margin-left: auto;
+      color: #999;
+      font-size: 18px;
+    }
+    .form-container {
+      padding: 20px;
+      display: none;
+    }
+    .form-container.active {
+      display: block;
+    }
+    .form-group {
+      margin-bottom: 16px;
+    }
+    .form-group label {
+      display: block;
+      font-size: 14px;
+      color: #333;
+      margin-bottom: 8px;
+      font-weight: 500;
+    }
+    .form-group input,
+    .form-group textarea,
+    .form-group select {
+      width: 100%;
+      padding: 12px;
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      font-size: 14px;
+      transition: border-color 0.3s;
+    }
+    .form-group input:focus,
+    .form-group textarea:focus,
+    .form-group select:focus {
+      outline: none;
+      border-color: #2196f3;
+    }
+    .form-group textarea {
+      height: 120px;
+      resize: vertical;
+    }
+    .btn {
+      display: block;
+      width: 100%;
+      padding: 14px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.3s;
+    }
+    .btn:hover {
+      transform: translateY(-2px);
+    }
+    .btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+    }
+    .back-btn {
+      display: inline-block;
+      padding: 10px 20px;
+      background: #f5f5f5;
+      color: #666;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      cursor: pointer;
+      margin-bottom: 16px;
+    }
+    .back-btn:hover {
+      background: #e0e0e0;
+    }
+    .status-card {
+      background: #e8f5e9;
+      border-radius: 12px;
+      padding: 16px;
+      margin-top: 20px;
+    }
+    .status-card h3 {
+      color: #2e7d32;
+      margin-bottom: 10px;
+    }
+    .status-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 0;
+      border-bottom: 1px solid #c8e6c9;
+    }
+    .status-item:last-child {
+      border-bottom: none;
+    }
+    .status-label {
+      color: #666;
+    }
+    .status-value {
+      font-weight: 600;
+      color: #333;
+    }
+    .success-message {
+      background: #e8f5e9;
+      border-radius: 12px;
+      padding: 20px;
+      text-align: center;
+      display: none;
+    }
+    .success-message.active {
+      display: block;
+    }
+    .success-icon {
+      font-size: 48px;
+      margin-bottom: 16px;
+    }
+    .success-message h3 {
+      color: #2e7d32;
+      margin-bottom: 10px;
+    }
+    .success-message p {
+      color: #666;
+      font-size: 14px;
+    }
+    .footer {
+      padding: 20px;
+      text-align: center;
+      color: #999;
+      font-size: 12px;
+      border-top: 1px solid #eee;
+    }
+    .loading {
+      display: none;
+      text-align: center;
+      padding: 40px;
+    }
+    .loading.active {
+      display: block;
+    }
+    .spinner {
+      border: 3px solid #f3f3f3;
+      border-top: 3px solid #2196f3;
+      border-radius: 50%;
+      width: 30px;
+      height: 30px;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 16px;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    .room-info {
+      background: #fff3e0;
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 16px;
+    }
+    .room-info p {
+      font-size: 13px;
+      color: #e65100;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🏨 桂山大酒店</h1>
+      <p>自助服务平台</p>
+    </div>
+
+    <!-- 欢迎页 -->
+    <div id="welcome" class="welcome">
+      <h2>👋 欢迎来到桂山大酒店</h2>
+      <p>我是您的AI客服助手，可以一站式解决您的所有问题：</p>
+      <ul style="text-align:left; margin:15px 0; padding-left:20px; color:#555; font-size:14px; line-height:2;">
+        <li>🔧 设施报修（空调、热水器、门锁等）</li>
+        <li>📦 物品配送（毛巾、拖鞋、洗漱用品等）</li>
+        <li>💬 问题咨询（早餐、WiFi、停车场等）</li>
+        <li>🎤 支持语音输入，说话就能下单</li>
+      </ul>
+      <p style="font-weight:600; color:#e91e63;">👇 点击下方按钮，立即开始</p>
+      <div id="room-info" class="room-info" style="display:none;">
+        <p>📍 当前房间：<span id="room-no"></span></p>
+      </div>
+    </div>
+
+    <!-- 服务菜单 -->
+    <div id="services" class="services">
+      <div class="service-card" onclick="openKf()" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; border: 2px solid #e91e63;">
+        <div class="service-icon">🤖</div>
+        <div class="service-info">
+          <h3 style="color: white;">AI智能客服</h3>
+          <p style="color: rgba(255,255,255,0.9);">一站式解决所有问题，支持语音输入</p>
+        </div>
+        <div class="service-arrow" style="color: rgba(255,255,255,0.7);">›</div>
+      </div>
+
+      <div style="text-align:center; margin:15px 0; color:#888; font-size:13px;">
+        ── 或选择以下自助服务 ──
+      </div>
+
+      <div class="service-card" onclick="showForm('repair')">
+        <div class="service-icon">🔧</div>
+        <div class="service-info">
+          <h3>报修服务</h3>
+          <p>设备故障、设施问题</p>
+        </div>
+        <div class="service-arrow">›</div>
+      </div>
+
+      <div class="service-card" onclick="showForm('delivery')">
+        <div class="service-icon">📦</div>
+        <div class="service-info">
+          <h3>送物服务</h3>
+          <p>毛巾、拖鞋、洗漱用品</p>
+        </div>
+        <div class="service-arrow">›</div>
+      </div>
+
+      <div class="service-card" onclick="showForm('consult')">
+        <div class="service-icon">💬</div>
+        <div class="service-info">
+          <h3>咨询问题</h3>
+          <p>设施、服务、周边信息</p>
+        </div>
+        <div class="service-arrow">›</div>
+      </div>
+
+      <div class="service-card" onclick="window.location.href='tel:0'">
+        <div class="service-icon">📞</div>
+        <div class="service-info">
+          <h3>转人工客服</h3>
+          <p>拨打前台电话 0</p>
+        </div>
+        <div class="service-arrow">›</div>
+      </div>
+    </div>
+
+    <!-- 报修表单 -->
+    <div id="form-repair" class="form-container">
+      <button class="back-btn" onclick="showMenu()">← 返回菜单</button>
+      <h2 style="margin-bottom: 20px;">🔧 报修服务</h2>
+      <form onsubmit="submitRepair(event)">
+        <div class="form-group">
+          <label>故障描述</label>
+          <textarea id="repair-desc" placeholder="请描述设备故障情况，例如：空调不制冷、马桶漏水等" required></textarea>
+        </div>
+        <div class="form-group">
+          <label>紧急程度</label>
+          <select id="repair-urgency">
+            <option value="normal">普通</option>
+            <option value="urgent">紧急</option>
+          </select>
+        </div>
+        <button type="submit" class="btn">提交报修</button>
+      </form>
+    </div>
+
+    <!-- 送物表单 -->
+    <div id="form-delivery" class="form-container">
+      <button class="back-btn" onclick="showMenu()">← 返回菜单</button>
+      <h2 style="margin-bottom: 20px;">📦 送物服务</h2>
+      <form onsubmit="submitDelivery(event)">
+        <div class="form-group">
+          <label>物品需求</label>
+          <textarea id="delivery-items" placeholder="请描述需要的物品，例如：2条毛巾、1双拖鞋、矿泉水等" required></textarea>
+        </div>
+        <div class="form-group">
+          <label>送物时间</label>
+          <select id="delivery-time">
+            <option value="asap">尽快送达</option>
+            <option value="morning">明天早上</option>
+            <option value="afternoon">明天下午</option>
+          </select>
+        </div>
+        <button type="submit" class="btn">提交需求</button>
+      </form>
+    </div>
+
+    <!-- 咨询表单 -->
+    <div id="form-consult" class="form-container">
+      <button class="back-btn" onclick="showMenu()">← 返回菜单</button>
+      <h2 style="margin-bottom: 20px;">💬 咨询问题</h2>
+      <form onsubmit="submitConsult(event)">
+        <div class="form-group">
+          <label>问题描述</label>
+          <textarea id="consult-question" placeholder="请描述您的问题，例如：早餐时间、健身房位置等" required></textarea>
+        </div>
+        <button type="submit" class="btn">提交咨询</button>
+      </form>
+    </div>
+
+    <!-- 提交成功 -->
+    <div id="success" class="success-message">
+      <div class="success-icon">✅</div>
+      <h3 id="success-title">提交成功</h3>
+      <p id="success-message">我们会尽快处理您的需求</p>
+      <p id="success-order" style="margin-top: 10px; font-weight: 600;"></p>
+      <button class="btn" style="margin-top: 20px;" onclick="showMenu()">返回菜单</button>
+    </div>
+
+    <!-- 加载中 -->
+    <div id="loading" class="loading">
+      <div class="spinner"></div>
+      <p>提交中...</p>
+    </div>
+
+    <!-- 房间状态 -->
+    <div id="status-card" class="status-card" style="display:none;">
+      <h3>📋 房间状态</h3>
+      <div class="status-item">
+        <span class="status-label">房间号</span>
+        <span class="status-value" id="status-room">-</span>
+      </div>
+      <div class="status-item">
+        <span class="status-label">状态</span>
+        <span class="status-value" id="status-status">-</span>
+      </div>
+      <div class="status-item">
+        <span class="status-label">在途工单</span>
+        <span class="status-value" id="status-orders">-</span>
+      </div>
+    </div>
+
+    <div class="footer">
+      <p>桂山大酒店 · 24小时服务热线：0</p>
+    </div>
+  </div>
+
+  <script>
+    // 从URL参数获取客人ID
+    const urlParams = new URLSearchParams(window.location.search);
+    const kfId = urlParams.get('kf_id') || '';
+
+    // API 基础路径
+    const API = '/api/domhotel-suite';
+
+    // 显示菜单
+    function showMenu() {
+      document.getElementById('services').style.display = 'block';
+      document.getElementById('form-repair').classList.remove('active');
+      document.getElementById('form-delivery').classList.remove('active');
+      document.getElementById('form-consult').classList.remove('active');
+      document.getElementById('success').classList.remove('active');
+      document.getElementById('loading').classList.remove('active');
+    }
+
+    // 显示表单
+    function showForm(type) {
+      document.getElementById('services').style.display = 'none';
+      document.getElementById('form-' + type).classList.add('active');
+    }
+
+    // 显示加载
+    function showLoading() {
+      document.getElementById('services').style.display = 'none';
+      document.getElementById('form-repair').classList.remove('active');
+      document.getElementById('form-delivery').classList.remove('active');
+      document.getElementById('form-consult').classList.remove('active');
+      document.getElementById('loading').classList.add('active');
+    }
+
+    // 显示成功
+    function showSuccess(title, message, orderId) {
+      document.getElementById('loading').classList.remove('active');
+      document.getElementById('success-title').textContent = title;
+      document.getElementById('success-message').textContent = message;
+      document.getElementById('success-order').textContent = orderId ? `工单号：${orderId}` : '';
+      document.getElementById('success').classList.add('active');
+    }
+
+    // 提交报修
+    async function submitRepair(e) {
+      e.preventDefault();
+      const desc = document.getElementById('repair-desc').value;
+      const urgency = document.getElementById('repair-urgency').value;
+
+      if (!desc) {
+        alert('请描述故障情况');
+        return;
+      }
+
+      showLoading();
+
+      try {
+        const response = await fetch(API + '/guest/service', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            kf_id: kfId,
+            service_type: 'repair',
+            description: desc,
+            urgency: urgency
+          })
+        });
+
+        const data = await response.json();
+
+        if (data.ok) {
+          showSuccess('报修已提交', '我们会尽快安排维修', data.order_id);
+        } else {
+          alert('提交失败：' + (data.error || '请重试'));
+          showMenu();
+        }
+      } catch (err) {
+        alert('网络错误，请重试');
+        showMenu();
+      }
+    }
+
+    // 提交送物
+    async function submitDelivery(e) {
+      e.preventDefault();
+      const items = document.getElementById('delivery-items').value;
+      const time = document.getElementById('delivery-time').value;
+
+      if (!items) {
+        alert('请描述需要的物品');
+        return;
+      }
+
+      showLoading();
+
+      try {
+        const response = await fetch(API + '/guest/service', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            kf_id: kfId,
+            service_type: 'delivery',
+            description: items,
+            delivery_time: time
+          })
+        });
+
+        const data = await response.json();
+
+        if (data.ok) {
+          showSuccess('送物需求已提交', '我们会尽快送达', data.order_id);
+        } else {
+          alert('提交失败：' + (data.error || '请重试'));
+          showMenu();
+        }
+      } catch (err) {
+        alert('网络错误，请重试');
+        showMenu();
+      }
+    }
+
+    // 提交咨询
+    async function submitConsult(e) {
+      e.preventDefault();
+      const question = document.getElementById('consult-question').value;
+
+      if (!question) {
+        alert('请描述您的问题');
+        return;
+      }
+
+      showLoading();
+
+      try {
+        const response = await fetch(API + '/guest/service', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            kf_id: kfId,
+            service_type: 'consult',
+            description: question
+          })
+        });
+
+        const data = await response.json();
+
+        if (data.ok) {
+          showSuccess('咨询已提交', '我们会尽快回复您', data.order_id);
+        } else {
+          alert('提交失败：' + (data.error || '请重试'));
+          showMenu();
+        }
+      } catch (err) {
+        alert('网络错误，请重试');
+        showMenu();
+      }
+    }
+
+    // 加载房间状态
+    async function loadRoomStatus() {
+      if (!kfId) return;
+
+      try {
+        const response = await fetch(API + '/guest/room?kf_id=' + kfId);
+        const data = await response.json();
+
+        if (data.ok && data.room) {
+          document.getElementById('room-info').style.display = 'block';
+          document.getElementById('room-no').textContent = data.room.room_no;
+
+          document.getElementById('status-card').style.display = 'block';
+          document.getElementById('status-room').textContent = data.room.room_no;
+          document.getElementById('status-status').textContent = data.room.status || '空房';
+          document.getElementById('status-orders').textContent = data.room.active_orders || '0';
+        }
+      } catch (err) {
+        console.error('加载房间状态失败', err);
+      }
+    }
+
+    // 打开企微客服
+    function openKf() {
+      const kfUrl = 'https://work.weixin.qq.com/kfid/kfca76c9ef7d49ce4db';
+      window.location.href = kfUrl;
+    }
+
+    // 页面加载时获取房间状态
+    loadRoomStatus();
+  </script>
+</body>
+</html>
