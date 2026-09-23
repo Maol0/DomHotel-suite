@@ -1,0 +1,35 @@
+{
+  "id": "agent-office",
+  "name": "Agent Office",
+  "version": "0.1.0",
+  "type": "app",
+  "description": "A virtual office dashboard that visualizes every agent's live status — who is busy, for how long, and what they just finished — with team-shared avatars and dispatch flight paths.",
+  "description_i18n": {
+    "zh-CN": "智能体办公室看板。用拟物办公室的方式实时展示每个智能体的工作状态：谁在忙、忙了多久、刚完成了什么，以及智能体之间的派活协作（跨卡片连线与飞行轨迹）。头像存在后端，团队统一、跟人走。",
+    "en-US": "A virtual office dashboard that visualizes every agent's live status — who is busy, for how long, and what they just finished — with team-shared avatars and dispatch flight paths."
+  },
+  "author": "Osier-Yi",
+  "entry": {
+    "backend": "plugin.py",
+    "frontend": "frontend/dist/index.js"
+  },
+  "dependencies": [],
+  "min_version": "1.1.10",
+  "meta": {
+    "category": "multi-agent",
+    "features": [
+      "agent-status",
+      "office-dashboard",
+      "live-monitoring",
+      "shared-avatars",
+      "dispatch-flight-path"
+    ],
+    "pawapp": {
+      "icon": "🏢",
+      "category": "multi-agent",
+      "entry_page": "/apps/agent-office",
+      "home_page": "frontend/dist/index.html",
+      "launch_scope": "page"
+    }
+  }
+}

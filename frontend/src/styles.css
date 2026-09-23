@@ -1,0 +1,686 @@
+/* Agent Office — soft, cute, modern product UI with workstation desks.
+   Bright, warm, sticker-feel. Classes prefixed "ao-". */
+
+.ao-root {
+  --c-sky: #5bb8f0;
+  --c-sky-soft: #e8f5fe;
+  --c-mint: #2dd4a7;
+  --c-mint-soft: #e1f8f1;
+  --c-coral: #ff8a6b;
+  --c-coral-soft: #ffece4;
+  --c-cream: #ffd56b;
+  --c-cream-soft: #fff6dd;
+  --ink: #2a2f45;
+  --muted: #828aa0;
+  --line: #eceff5;
+
+  --radius-card: 24px;
+  --radius-ctrl: 14px;
+  --shadow-soft: 0 12px 28px rgba(42, 47, 69, 0.10);
+  --shadow-hover: 0 18px 38px rgba(42, 47, 69, 0.16);
+
+  position: relative;
+  min-height: 100%;
+  padding: 20px 22px 40px;
+  box-sizing: border-box;
+  color: var(--ink);
+  font-family:
+    "Nunito", "Quicksand", "PingFang SC", "Hiragino Sans GB",
+    "Microsoft YaHei", system-ui, -apple-system, sans-serif;
+  background:
+    radial-gradient(70% 55% at 8% 0%, rgba(91, 184, 240, 0.16), transparent 60%),
+    radial-gradient(60% 50% at 100% 10%, rgba(45, 212, 167, 0.16), transparent 60%),
+    radial-gradient(60% 60% at 50% 110%, rgba(255, 138, 107, 0.12), transparent 60%),
+    linear-gradient(180deg, #fbfdff 0%, #f4f8fc 100%);
+}
+.ao-root::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    radial-gradient(circle at 18% 32%, rgba(255, 213, 107, 0.18) 0 14px, transparent 15px),
+    radial-gradient(circle at 88% 62%, rgba(91, 184, 240, 0.16) 0 20px, transparent 21px),
+    radial-gradient(circle at 70% 18%, rgba(45, 212, 167, 0.14) 0 10px, transparent 11px);
+  background-repeat: no-repeat;
+}
+.ao-root * { box-sizing: border-box; }
+
+/* ---------- Hero banner ---------- */
+.ao-hero {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: stretch;
+  gap: 20px;
+  flex-wrap: wrap;
+  padding: 20px 22px;
+  margin-bottom: 22px;
+  border-radius: 28px;
+  background: linear-gradient(135deg, #eaf6ff 0%, #e6fbf3 100%);
+  border: 2px solid #ffffff;
+  box-shadow: var(--shadow-soft);
+  overflow: hidden;
+}
+.ao-hero__main {
+  flex: 1 1 320px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 12px;
+}
+.ao-hero__title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+}
+.ao-hero__title .ao-logo { font-size: 28px; filter: drop-shadow(0 3px 4px rgba(42,47,69,0.15)); }
+.ao-hero__subtitle { color: var(--muted); font-size: 13px; font-weight: 600; }
+.ao-hero__art {
+  flex: 1 1 320px;
+  max-width: 420px;
+  min-height: 150px;
+  border-radius: 20px;
+  background-size: cover;
+  background-position: center;
+  border: 3px solid #ffffff;
+  box-shadow: 0 8px 18px rgba(42,47,69,0.12);
+}
+
+/* stat chips */
+.ao-chips { display: flex; flex-wrap: wrap; gap: 10px; }
+.ao-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 13px;
+  border-radius: 999px;
+  background: #ffffff;
+  border: 2px solid var(--line);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink);
+  box-shadow: 0 4px 10px rgba(42,47,69,0.06);
+}
+.ao-chip .ao-chip__dot { width: 9px; height: 9px; border-radius: 50%; }
+.ao-chip b { font-size: 15px; }
+.ao-chip--running { background: var(--c-mint-soft); border-color: #c4efe2; }
+.ao-chip--idle { background: #f3f5f9; border-color: #e6e9f0; }
+.ao-chip--disabled { background: #f5f6f8; border-color: #ebedf1; color: var(--muted); }
+
+/* ---------- Controls ---------- */
+.ao-controls { display: flex; align-items: center; gap: 10px; }
+.ao-updated { font-size: 12px; font-weight: 600; color: var(--muted); }
+.ao-root .ao-controls .ant-segmented {
+  border-radius: var(--radius-ctrl);
+  padding: 3px;
+  background: #ffffff;
+  border: 2px solid var(--line);
+  font-weight: 700;
+}
+.ao-root .ao-controls .ant-segmented-item-selected {
+  border-radius: 10px;
+  background: var(--c-sky);
+  color: #fff;
+}
+.ao-root .ao-controls .ant-segmented-item { transition: transform 0.15s ease; }
+.ao-root .ao-controls .ant-segmented-item:active { transform: scale(0.94); }
+.ao-root .ao-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 14px;
+  border-radius: var(--radius-ctrl);
+  border: 2px solid var(--line);
+  background: #ffffff;
+  color: var(--ink);
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+  box-shadow: 0 4px 10px rgba(42,47,69,0.06);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+.ao-root .ao-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 16px rgba(42,47,69,0.12);
+  background: var(--c-sky-soft);
+}
+.ao-root .ao-btn:active { transform: translateY(0) scale(0.96); }
+
+/* ---------- Stage + Grid ---------- */
+.ao-stage { position: relative; }
+.ao-grid {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 28px 24px;
+}
+
+/* ---------- Agent workstation card ---------- */
+.ao-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  cursor: pointer;
+  padding: 6px 0 0;
+  transition:
+    transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1),
+    filter 0.2s ease;
+}
+.ao-card:hover { transform: translateY(-7px) scale(1.02); }
+.ao-card:active { transform: translateY(-2px) scale(0.98); }
+.ao-card--disabled { filter: grayscale(0.7); opacity: 0.65; }
+
+/* --- Desk assembly: monitor + chair + character + desk surface --- */
+.ao-desk {
+  position: relative;
+  width: 170px;
+  height: 140px;
+}
+
+/* Monitor */
+.ao-monitor {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.ao-monitor__screen {
+  width: 80px;
+  height: 52px;
+  border-radius: 10px 10px 3px 3px;
+  background: #ffffff;
+  border: 2.5px solid var(--line);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  box-shadow: var(--shadow-soft);
+}
+.ao-card--running .ao-monitor__screen {
+  border-color: var(--c-mint);
+  box-shadow: 0 8px 22px rgba(45,212,167,0.15);
+}
+.ao-card--manager .ao-monitor__screen {
+  border-color: var(--c-cream);
+}
+.ao-monitor__stand {
+  width: 12px;
+  height: 8px;
+  background: var(--line);
+  border-radius: 0 0 3px 3px;
+}
+
+/* Screen content (chat bubble lines) */
+.ao-screen-content {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 8px;
+}
+.ao-screen-line {
+  height: 4px;
+  border-radius: 2px;
+}
+.ao-screen-line:nth-child(1) { width: 70%; background: var(--c-sky); }
+.ao-screen-line:nth-child(2) { width: 45%; background: var(--c-coral); align-self: flex-end; }
+.ao-screen-line:nth-child(3) { width: 55%; background: var(--c-mint); }
+.ao-card--running .ao-screen-line {
+  animation: ao-screen-blink 2s ease-in-out infinite;
+}
+.ao-screen-line:nth-child(2) { animation-delay: 0.3s; }
+.ao-screen-line:nth-child(3) { animation-delay: 0.6s; }
+@keyframes ao-screen-blink {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
+}
+.ao-card--idle .ao-screen-content,
+.ao-card--disabled .ao-screen-content {
+  opacity: 0.3;
+}
+/* GIF screen image (replaces CSS lines when a GIF asset is bundled) */
+.ao-screen-gif {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 8px 8px 1px 1px;
+  pointer-events: none;
+}
+.ao-card--idle .ao-screen-gif,
+.ao-card--disabled .ao-screen-gif {
+  opacity: 0.35;
+  filter: grayscale(0.5);
+}
+
+/* Character + chair assembly */
+.ao-char {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* Office chair (behind the avatar) */
+.ao-chair {
+  position: absolute;
+  top: -8px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  z-index: 0;
+  pointer-events: none;
+}
+/* Chair back rest — wider than the avatar so edges peek out */
+.ao-chair__back {
+  width: 64px;
+  height: 36px;
+  border-radius: 18px 18px 6px 6px;
+  background: linear-gradient(180deg, #c8ceda 0%, #b8bfce 100%);
+  border: 2.5px solid #b0b8c8;
+  border-bottom: none;
+}
+/* Chair seat — also wider, rounded bottom to look comfy */
+.ao-chair__seat {
+  width: 66px;
+  height: 18px;
+  border-radius: 4px 4px 14px 14px;
+  background: linear-gradient(180deg, #bcc3d2 0%, #aab2c2 100%);
+  border: 2.5px solid #b0b8c8;
+  border-top: none;
+  margin-top: -2px;
+}
+/* Small chair base/stem */
+.ao-chair__seat::after {
+  content: "";
+  display: block;
+  width: 10px;
+  height: 6px;
+  background: #a8b0c0;
+  border-radius: 0 0 3px 3px;
+  margin: 0 auto;
+}
+/* Manager gets a cream-coloured executive chair */
+.ao-card--manager .ao-chair__back {
+  background: linear-gradient(180deg, #f5e8c4 0%, #ead5a0 100%);
+  border-color: #dcc580;
+}
+.ao-card--manager .ao-chair__seat {
+  background: linear-gradient(180deg, #ead5a0 0%, #dcc580 100%);
+  border-color: #d0b870;
+}
+.ao-card--manager .ao-chair__seat::after {
+  background: #d0b870;
+}
+
+.ao-char__body { position: relative; width: 52px; height: 52px; z-index: 1; }
+.ao-char__avatar {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  font-weight: 800;
+  color: #fff;
+  background-size: cover;
+  background-position: center;
+  border: 3px solid #fff;
+  box-shadow:
+    0 6px 14px rgba(42,47,69,0.18),
+    inset 0 2px 4px rgba(255,255,255,0.5);
+}
+.ao-card--running .ao-char__avatar {
+  border-color: var(--c-mint);
+  box-shadow: 0 6px 18px rgba(45,212,167,0.25);
+}
+.ao-card--manager .ao-char__avatar {
+  border-color: var(--c-cream);
+}
+/* Glow ring for running */
+.ao-card--running .ao-char__body::after {
+  content: "";
+  position: absolute;
+  inset: -5px;
+  border-radius: 50%;
+  border: 3px solid var(--c-mint);
+  animation: ao-pulse 1.8s ease-out infinite;
+}
+@keyframes ao-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(45,212,167,0.5); }
+  100% { box-shadow: 0 0 0 14px rgba(45,212,167,0); }
+}
+/* Bobbing animation for running */
+.ao-card--running .ao-char {
+  animation: ao-bob 2.6s ease-in-out infinite;
+}
+@keyframes ao-bob {
+  0%, 100% { transform: translateX(-50%) translateY(0); }
+  50% { transform: translateX(-50%) translateY(-5px); }
+}
+/* Status dot */
+.ao-char__status-dot {
+  position: absolute;
+  bottom: 0;
+  right: -2px;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  border: 2.5px solid #fff;
+  z-index: 3;
+}
+
+/* Desk surface (the table slab) */
+.ao-desk__surface {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 150px;
+  height: 18px;
+  background: linear-gradient(135deg, #e8edf5 0%, #dfe4ee 100%);
+  border: 2px solid var(--line);
+  border-radius: 6px;
+  box-shadow: 0 4px 10px rgba(42,47,69,0.08);
+}
+.ao-card--manager .ao-desk__surface {
+  background: linear-gradient(135deg, #fff6dd 0%, #ffedc4 100%);
+  border-color: #f0dea0;
+}
+
+/* ---------- Name + status labels ---------- */
+.ao-label {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  margin-top: 8px;
+}
+.ao-label__name-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.ao-card__name {
+  font-weight: 800;
+  font-size: 14px;
+  text-align: center;
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  letter-spacing: 0.2px;
+}
+.ao-card__desc {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ao-card__meta {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  margin-top: 2px;
+  text-align: center;
+  min-height: 15px;
+}
+
+/* status pill (inline beside name) */
+.ao-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+  border: 2px solid transparent;
+}
+.ao-pill--running {
+  background: var(--c-mint-soft);
+  color: #0f9e7a;
+  border-color: #c4efe2;
+}
+.ao-pill--idle {
+  background: #f3f5f9;
+  color: #5b6478;
+  border-color: #e6e9f0;
+}
+.ao-pill--disabled {
+  background: #f5f6f8;
+  color: #9aa1b2;
+  border-color: #ebedf1;
+}
+.ao-pill__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+/* task-count badge */
+.ao-taskbadge {
+  position: absolute;
+  top: 2px;
+  right: 6px;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: 11px;
+  background: var(--c-coral);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 10px rgba(255,138,107,0.45);
+  z-index: 10;
+}
+
+/* crown for manager */
+.ao-card__crown {
+  position: absolute;
+  top: -14px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 20px;
+  filter: drop-shadow(0 2px 3px rgba(42,47,69,0.2));
+  z-index: 10;
+}
+
+/* courier tag (incoming hand-off on card) */
+.ao-courier {
+  position: absolute;
+  top: -6px;
+  left: -4px;
+  font-size: 18px;
+  animation: ao-fly-in 1.9s ease-in-out infinite;
+  pointer-events: none;
+  z-index: 10;
+}
+@keyframes ao-fly-in {
+  0% { transform: translate(-34px,-18px) rotate(-14deg); opacity: 0; }
+  30% { opacity: 1; }
+  70% { transform: translate(8px,10px) rotate(6deg); opacity: 1; }
+  100% { transform: translate(20px,18px) rotate(0deg); opacity: 0; }
+}
+.ao-courier__tag {
+  position: absolute;
+  top: 28px;
+  left: -4px;
+  font-size: 10px;
+  font-weight: 700;
+  background: var(--ink);
+  color: #fff;
+  padding: 2px 8px;
+  border-radius: 9px;
+  white-space: nowrap;
+  box-shadow: 0 3px 8px rgba(0,0,0,0.18);
+  z-index: 10;
+}
+
+/* ---------- Dispatch flight paths ---------- */
+.ao-courier-svg {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  overflow: visible;
+  pointer-events: none;
+}
+/* Active: solid coral with flowing dash animation */
+.ao-flight {
+  fill: none;
+  stroke: var(--c-coral);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 10 5;
+  opacity: 0.85;
+  animation: ao-flow 0.6s linear infinite;
+}
+@keyframes ao-flow {
+  to { stroke-dashoffset: -15; }
+}
+/* Recent (inactive): static dashed gray */
+.ao-flight--recent {
+  stroke: #b0b8c8;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 6 4;
+  opacity: 0.4;
+  animation: none;
+}
+/* Travelling dot */
+.ao-flight__dot {
+  fill: var(--c-coral);
+  filter: drop-shadow(0 0 6px rgba(255,122,89,0.8));
+}
+/* Label pill */
+.ao-flight__label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  max-width: 160px;
+  margin: 0 auto;
+  padding: 2px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 18px;
+  color: #fff;
+  background: var(--c-coral);
+  border-radius: 10px;
+  white-space: nowrap;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(255,122,89,0.3), 0 0 0 2px #fff;
+}
+.ao-flight__from,
+.ao-flight__to {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 60px;
+}
+.ao-flight__arrow { color: rgba(255,255,255,0.7); flex: 0 0 auto; }
+.ao-flight__label--recent {
+  background: #b0b8c8;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.08), 0 0 0 2px #fff;
+}
+
+/* ---------- Avatar editor (inside drawer) ---------- */
+.ao-ava-editor {
+  display: flex;
+  gap: 14px;
+  padding: 14px;
+  margin-bottom: 16px;
+  border-radius: 18px;
+  background: #f8fafc;
+  border: 2px solid var(--line);
+}
+.ao-ava-current {
+  flex: 0 0 auto;
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  font-weight: 800;
+  color: #fff;
+  background-size: cover;
+  background-position: center;
+  border: 3px solid #fff;
+  box-shadow: 0 4px 10px rgba(42,47,69,0.15);
+}
+.ao-ava-side {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+.ao-ava-presets { display: flex; flex-wrap: wrap; gap: 8px; }
+.ao-ava-preset {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background-color: #fff;
+  background-size: cover;
+  background-position: center;
+  border: 2px solid var(--line);
+  cursor: pointer;
+  padding: 0;
+  transition: transform 0.15s ease, border-color 0.15s ease;
+}
+.ao-ava-preset:hover { transform: translateY(-2px) scale(1.06); border-color: var(--c-sky); }
+.ao-ava-preset.is-active { border-color: var(--c-mint); box-shadow: 0 0 0 3px var(--c-mint-soft); }
+.ao-ava-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.ao-ava-actions .ao-btn { height: 32px; font-size: 12px; }
+.ao-ava-hint { margin: 2px 0 0; font-size: 11px; color: var(--muted); }
+.ao-ava-editor.is-busy { opacity: 0.7; pointer-events: none; }
+
+/* ---------- States / misc ---------- */
+.ao-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 260px;
+  position: relative;
+  z-index: 1;
+}
+.ao-error { color: #e2563d; font-size: 13px; font-weight: 600; }
+.ao-drawer-msg {
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 13px;
+  line-height: 1.6;
+}
+.ao-drawer-msg--user { color: var(--c-sky); }
