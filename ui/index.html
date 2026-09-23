@@ -826,6 +826,7 @@ function _getSessionToken(name){
   try{v=localStorage.getItem(name)||'';}catch(e){v='';}
   return v;
 }
+function _wh(){const h={};const u=_getSessionToken('hotel_uid');const r=_getSessionToken('hotel_role');if(u)h['X-Hotel-Uid']=u;if(r)h['X-Hotel-Role']=r;return h;}
 async function api(path,opts={}){
   try{
     // v2.2.1-fix: OS 桌面 WebView 下 fetch 可能不自动带 cookie,
@@ -850,7 +851,7 @@ async function api(path,opts={}){
       // 如果 whoami logged_in=true (说明 cookie 在但某个端点的权限校验错), 不弹蒙层
       if(r.status===401){
         try{
-          const w=await fetch(API+'/auth/whoami',{credentials:'include'}).then(r=>r.ok?r.json():{}).catch(()=>({}));
+          const w=await fetch(API+'/auth/whoami',{credentials:'include',headers:_wh()}).then(r=>r.ok?r.json():{}).catch(()=>({}));
           if(!w.logged_in){
             showLoginGate();
             throw new Error('HTTP 401: 未登录');
@@ -868,7 +869,7 @@ async function api(path,opts={}){
         // 先复查登录态: whoami 说未登录 → 同步本地状态 + 弹登录蒙层, 而不是误报"权限不足"
         let whoamiInfo=null;
         try{
-          whoamiInfo=await fetch(API+'/auth/whoami',{credentials:'include'}).then(x=>x.ok?x.json():{}).catch(()=>({}));
+          whoamiInfo=await fetch(API+'/auth/whoami',{credentials:'include',headers:_wh()}).then(x=>x.ok?x.json():{}).catch(()=>({}));
           console.log('[api.403] whoami=', whoamiInfo, 'path=', path);
           if(!whoamiInfo.logged_in){
             __auth.loggedIn=false;__auth.userId='';__auth.name='';__auth.role='guest';
@@ -982,7 +983,7 @@ async function authLogout(){
 }
 async function authWhoami(){
   try{
-    const j=await fetch(API+'/auth/whoami',{credentials:'include'}).then(r=>r.ok?r.json():{}).catch(()=>({}));
+    const j=await fetch(API+'/auth/whoami',{credentials:'include',headers:_wh()}).then(r=>r.ok?r.json():{}).catch(()=>({}));
     __auth.setupDone=!!j.setup_done;
     __auth.loggedIn=!!j.logged_in;
     __auth.userId=j.user_id||'';

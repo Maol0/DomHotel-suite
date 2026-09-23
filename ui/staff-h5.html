@@ -270,8 +270,20 @@
       document.getElementById('message').className = 'message';
     }
 
+    function _authHdr() {
+      // v1.6.3: WebView 不带 cookie 时, 用 X-Hotel-Uid/Role 头兜底 (与 index.html 一致)
+      const h = {};
+      try {
+        const uid = localStorage.getItem('hotel_uid') || '';
+        const role = localStorage.getItem('hotel_role') || '';
+        if (uid) h['X-Hotel-Uid'] = uid;
+        if (role) h['X-Hotel-Role'] = role;
+      } catch (e) {}
+      return h;
+    }
+
     async function apiGet(path) {
-      const res = await fetch(API_BASE + path, { credentials: 'same-origin' });
+      const res = await fetch(API_BASE + path, { credentials: 'same-origin', headers: _authHdr() });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         throw new Error(data.detail || data.error || data.message || ('请求失败 ' + res.status));
@@ -282,7 +294,7 @@
     async function apiPost(path, body) {
       const res = await fetch(API_BASE + path, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ..._authHdr() },
         credentials: 'same-origin',
         body: JSON.stringify(body || {}),
       });
@@ -300,7 +312,9 @@
       const password = document.getElementById('password').value;
 
       try {
-        await apiPost('/auth/login', { identifier, password });
+        const j = await apiPost('/auth/login', { identifier, password });
+        // v1.6.3: 持久化登录态到 localStorage, 供 WebView 下 header 兜底
+        try { if (j && j.staff_id) { localStorage.setItem('hotel_uid', j.staff_id); localStorage.setItem('hotel_role', j.role || ''); } } catch (e) {}
         await loadUserAndTasks();
       } catch (err) {
         showMessage('❌ ' + err.message, 'error');
@@ -321,6 +335,9 @@
         }
         // 登录成功，清除 OAuth 标记
         sessionStorage.removeItem('oauth_attempted');
+        // v1.6.3: 任意入口(密码/企微OAuth/cookie)登录成功后都把身份落到 localStorage,
+        // 供 WebView 丢 cookie 时 X-Hotel-Uid/Role 头兜底 (自愈)
+        try { if (whoami && whoami.user_id) { localStorage.setItem('hotel_uid', whoami.user_id); localStorage.setItem('hotel_role', whoami.role || ''); } } catch (e) {}
         userInfo = whoami;
         document.getElementById('logoutBtn').style.display = 'block';
         document.getElementById('loginPage').style.display = 'none';
@@ -518,6 +535,7 @@
 
     async function logout() {
       try { await apiPost('/auth/logout', {}); } catch (e) {}
+      try { localStorage.removeItem('hotel_uid'); localStorage.removeItem('hotel_role'); } catch (e) {}
       userInfo = null;
       document.getElementById('logoutBtn').style.display = 'none';
       document.getElementById('loginPage').style.display = 'block';
