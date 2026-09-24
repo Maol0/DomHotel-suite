@@ -1,7 +1,7 @@
 {
   "id": "domhotel-suite",
   "name": "酒店房务工作台",
-  "version": "1.6.3",
+  "version": "1.6.4",
   "description": "DomHotel 智能酒店套件 (整合版): HUB 首启配置向导 (管理员→酒店名称→房态批量生成) + 前台接待登记 (入住/退房/CSV 导出, 联动房态) + 房态工作台 (楼栋→楼层→房型→房号四层看板、工单 Kanban、客房排程、交接班、4 个 AI 助手一键部署、企微同步、4 档权限角色系统) + SQLite 原子存储 (根治并发丢写) + 企微微信客服 (客人微信进来 AI 应答、报修直达内部员工)",
   "author": "DomHotel Suite Team",
   "type": "app",

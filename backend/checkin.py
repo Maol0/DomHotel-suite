@@ -22,6 +22,7 @@ from .. import data_layer
 from .. import auth
 from ..wecom_sync import safe_sync
 from .work_order_svc import svc_create_work_order
+from ..wecom_kf import sync_checkout_from_pms
 
 logger = logging.getLogger("domhotel-suite.checkin")
 
@@ -249,6 +250,14 @@ def register_routes(app) -> None:
         if row.get("room_no") and row.get("room_linked"):
             room_result = _apply_room_state(row["room_no"], "", "", "checkout")
         data_layer.save_table("checkins", rows)
+        # v2.4: 退房反向解绑微信客人绑定 (修: 看板/前台退房后微信仍认旧房)
+        try:
+            sync_checkout_from_pms(
+                row.get("room_no") or "", phone=row.get("phone") or "",
+                name=row.get("guest_name") or "",
+            )
+        except Exception as e:
+            logger.warning("[checkin] 退房反向解绑微信失败(不影响退房): %s", e)
         data_layer.append_log("checkins_log", {
             "record_key": checkin_id,
             "action": "checkout",

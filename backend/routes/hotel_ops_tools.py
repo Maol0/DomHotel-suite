@@ -32,13 +32,13 @@ logger = logging.getLogger("domhotel-suite.hotel_ops_tools")
 _ROLE_TOOLS = {
     "hotel-ai-guest-service": {
         "guest_query_my_room", "guest_request_service", "guest_query_my_orders",
-        "guest_request_checkout", "guest_room_complaint",
+        "guest_request_checkout", "guest_room_complaint", "guest_bind_room",  # v2.4-roomfix
         "staff_room_query", "staff_today_overview",
         "staff_schedule_query",
     },
     "hotel-ai-frontdesk": {
         "guest_query_my_room", "guest_request_service", "guest_query_my_orders",
-        "guest_request_checkout", "guest_room_complaint",
+        "guest_request_checkout", "guest_room_complaint", "guest_bind_room",  # v2.4-roomfix
         "staff_room_query", "staff_room_checkin", "staff_room_checkout",
         "staff_room_status_set", "staff_room_change",
         "staff_work_order_create", "staff_work_order_assign",
@@ -94,12 +94,13 @@ def _check_tool_access(tool_name: str):
 
 # 服务类型 → (工单类型, 目标部门, 默认优先级)
 _SERVICE_MAP = {
-    "维修": ("维修", "engineering", "high"),
-    "送物": ("送物", "housekeeping", "normal"),
-    "打扫": ("清洁", "housekeeping", "normal"),
-    "补货": ("补货", "housekeeping", "normal"),
-    "加被": ("送物", "housekeeping", "normal"),
-    "其他": ("其他", "", "normal"),
+    # v2.4-intake: 客人请求统一 target_dept=frontdesk, 由前台收单再转派对应部门; work_type 仍保留供前台判断
+    "维修": ("维修", "frontdesk", "high"),
+    "送物": ("送物", "frontdesk", "normal"),
+    "打扫": ("清洁", "frontdesk", "normal"),
+    "补货": ("补货", "frontdesk", "normal"),
+    "加被": ("送物", "frontdesk", "normal"),
+    "其他": ("其他", "frontdesk", "normal"),
 }
 
 _VALID_ROOM_STATUS = ("空房", "在住", "待打扫", "维修中")
@@ -435,6 +436,41 @@ async def guest_room_complaint(external_userid: str = "",
     )
     return {"ok": True, "wo_id": wo.get("wo_id"), "escalated": True,
             "message": f"非常重视您的反馈, 已转前台管理岗跟进 (工单 {wo.get('wo_id')})。"}
+
+# v2.4-roomfix: 客人绑定/换房工具 (让 AI 能真正改绑而非空口承诺)
+async def guest_bind_room(external_userid: str = "", room_no: str = "") -> Dict[str, Any]:
+    _access = _check_tool_access("guest_bind_room")
+    if _access is not None:
+        return _access
+    """客人报房号/换房时更新绑定房间。
+
+    何时调用: 客人说「我住1401」「换房到0505」「房号改成1401」「帮我登记1401」时。
+    行为: 校验房间存在 → 保留原姓名/手机号 → bind_customer 改绑; 并与前台入住记录(t_checkins)对账。
+    首次绑定缺姓名时不臆造, 引导客人发送完整「绑定 <房间号> <姓名>」。
+    """
+    _ensure_backend()
+    from ..wecom_kf import bind_customer, find_customer_by_external_userid
+    ext = (external_userid or "").strip()
+    if ext.startswith("kf-"):
+        ext = ext[3:]
+    room_no = str(room_no or "").strip()
+    if not ext:
+        return {"ok": False, "error": "缺少 external_userid (客人身份标识)。"}
+    if not room_no:
+        return {"ok": False, "error": "缺少 room_no (房间号)。"}
+    if not _find_room(_load_rooms(), room_no):
+        return {"ok": False, "error": f"房间 {room_no} 不存在，请核对房号。"}
+    existing = find_customer_by_external_userid(ext)
+    gname = ((existing or {}).get("guest_name") or "").strip()
+    gphone = (existing or {}).get("guest_phone") or ""
+    if not gname:
+        return {"ok": False,
+                "error": f"首次绑定需登记姓名，请让客人发送：绑定 {room_no} <姓名>。"}
+    cust = bind_customer(ext, room_no, gname, guest_phone=gphone)
+    return {"ok": True, "room_no": room_no, "guest_name": gname,
+            "customer_id": cust.get("customer_id", ""),
+            "message": f"✅ 已绑定/更新房间 {room_no}（{gname}），后续服务以此房号为准。"}
+
 
 
 # ─────────────────────────────── 员工侧工具 ───────────────────────────────
@@ -1311,6 +1347,10 @@ _TOOLS = [
     (guest_room_complaint, "guest_room_complaint",
      "客人投诉直达前台管理岗, 建高优先级工单。何时调用: 客人表达投诉/不满时。"
      "content 保留客人原话。", "⚠️"),
+    # v2.4-roomfix
+    (guest_bind_room, "guest_bind_room",
+     "客人报房号/换房时更新绑定房间。何时调用: 客人说「我住1401」「换房到0505」"
+     "「房号改成1401」「帮我登记1401」时。自动校验房间并保留姓名/手机, 与前台入住记录对账。", "🔑"),
     (staff_room_query, "staff_room_query",
      "查询房态: 单房/条件过滤/全店统计。何时调用: 员工问「空房有哪些」「0404 状态」"
      "「帮我找间大床房」时。全留空返回统计概览。", "🔍"),

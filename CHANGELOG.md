@@ -1,5 +1,16 @@
 # DomHotel Suite — Changelog
 
+## v1.6.4 (2026-09-24)
+
+### 🎯 微信身份打通 + 退房反查对齐 + 前台收单统一 + 客服回复提速
+
+- **退房反查对齐（本次核心修复）**：客人从微信入口绑房后，若退房在**房态看板 / 前台登记 / AGENT 之外**操作，`t_customers` 不会被清 → 之后微信来消息仍被识别成「还住在原房间」。修复分两层：
+  - **写时反向解绑**：`checkin.checkout_checkin` 与 `rooms.checkout` 退房落地后调 `wecom_kf.sync_checkout_from_pms(room_no, phone, name)`，以房间为主键清绑该房活跃微信客人（置 `deleted/unbound_at/checkout_at`）并 `guest_profile.record_checkout` 关闭本次住宿（身份/历史跨退房保留，供回访识别）。
+  - **读时自愈**：`resolve_current_room` 无 `in_house` 匹配且入住表存在该房间 **正向 `checked_out` 记录**（电话/姓名吻合）时软删陈旧绑定、促使其重新绑房；保守判定，不误伤不使用 `t_checkins` 的酒店。
+- **微信身份握手（external_userid ↔ openid ↔ 电话）**：客服绑房后与前台入住（PMS）握手，缓存 openid，`guest_profile` 记录房号/房型/住宿史；未绑定的访客也缓存 openid；解绑后回访欢迎语带「上次住 X 房 / Y 房型」。新增只读诊断端点 `GET /admin/identity-debug`（`stored_identity / convert_live / pms_match_preview`，用于验证 openid 转换权限是否真的生效）。
+- **客服回复提速**：AI 应答提示词仅在**会话首轮**注入身份/画像上下文（`chat_session_manager` 判定 `created_new`），后续轮次精简注入，显著缩短微信首屏回复延迟。
+- **前台收单统一**：客人可发起的报修/需求（`wecom_kf` 客服报修、`hotel_ops_tools`、`guest_service`、`guest_portal`）一律先收单到 `frontdesk`（`_SERVICE_MAP` 全部指向 frontdesk），再由前台转派工程/客房/清洁，避免直达部门时派单口径不一。
+
 ## v1.6.3 (2026-09-22)
 
 ### 🔧 根治「建单不通知」+ 部门群发送方修正 + 发布包脱敏

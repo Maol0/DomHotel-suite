@@ -111,7 +111,7 @@ def register_routes(app) -> None:
             description=full_desc,
             priority=urgency if urgency in ("urgent", "high", "normal", "low") else "normal",
             reporter=f"客人:{guest_name}",
-            target_dept="engineering",
+            target_dept="frontdesk",  # v2.4-intake: 客人报修统一前台收单
             data_source="guest",
             operator=f"guest:{room_no}:{guest_name}",
             extra=({"photo_urls": photos} if photos else None),
@@ -453,7 +453,7 @@ def register_routes(app) -> None:
             description=full_desc,
             priority=urgency if urgency in ("urgent", "high", "normal", "low") else "normal",
             reporter=f"H5客人:{guest_name or '匿名'}",
-            target_dept=dept_map.get(work_type, "frontdesk"),
+            target_dept="frontdesk",  # v2.4-intake: 前台收单
             data_source="guest_h5",
             operator=f"h5_guest:{room_no}",
             extra=_extra,

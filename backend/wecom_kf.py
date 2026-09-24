@@ -192,6 +192,80 @@ def find_active_customer_by_external_userid(external_userid: str) -> Optional[Di
     return None
 
 
+# v2.4-roomfix: 以前台入住记录(t_checkins in_house)为权威源, 对账并自愈陈旧的 t_customers 房号
+def _norm_phone(p: str) -> str:
+    import re as _re
+    return _re.sub(r"\D", "", str(p or ""))
+
+
+def resolve_current_room(external_userid: str) -> Optional[Dict[str, Any]]:
+    """返回客人"当前真实所在房间"的绑定记录。
+
+    与前台入住表对账: 若 t_checkins 有匹配的 in_house 记录且房号 != t_customers.room_no,
+    以入住表为准并回写(bind_customer 自愈), 修掉"我住1401却识别成1406"这类陈旧绑定。
+    匹配优先级: 手机号(归一化后精确) > 姓名(仅当唯一命中)。无可靠匹配则原样返回。
+    """
+    cust = find_active_customer_by_external_userid(external_userid)
+    if not cust:
+        return None
+    try:
+        checkins = data_layer.load_table("checkins")
+    except Exception:
+        return cust
+    in_house = [c for c in checkins
+                if c.get("status") == "in_house" and str(c.get("room_no") or "").strip()]
+    cp = _norm_phone(cust.get("guest_phone"))
+    cname = str(cust.get("guest_name") or "").strip()
+    match = None
+    if cp:
+        for c in in_house:
+            if _norm_phone(c.get("phone")) == cp:
+                match = c
+                break
+    if match is None and cname:
+        cand = [c for c in in_house if str(c.get("guest_name") or "").strip() == cname]
+        if len(cand) == 1:
+            match = cand[0]
+    if match:
+        true_room = str(match.get("room_no") or "").strip()
+        if true_room and true_room != str(cust.get("room_no") or "").strip():
+            try:
+                bind_customer(
+                    external_userid, true_room,
+                    match.get("guest_name") or cname or "",
+                    guest_phone=match.get("phone") or cust.get("guest_phone") or "",
+                )
+                fresh = find_active_customer_by_external_userid(external_userid)
+                if fresh:
+                    logger.info("[kf] 房号对账自愈: %s → %s (ext=%s)",
+                                cust.get("room_no"), true_room, external_userid[:12])
+                    return fresh
+            except Exception as e:
+                logger.warning("[kf] 房号对账回写失败: %s", e)
+    if match:
+        return cust
+    # v2.4: 无 in_house 匹配 -> 读时退房自愈 (保守: 仅当入住表存在该房间
+    # checked_out 记录且电话/姓名吻合才软删, 避免误伤不使用 t_checkins 的酒店)
+    cur_room = str(cust.get("room_no") or "").strip()
+    if cur_room:
+        co = [c for c in checkins
+              if c.get("status") == "checked_out"
+              and str(c.get("room_no") or "").strip() == cur_room]
+        confirmed = bool(cp) and any(_norm_phone(c.get("phone")) == cp for c in co)
+        if not confirmed and cname:
+            confirmed = any(str(c.get("guest_name") or "").strip() == cname for c in co)
+        if confirmed:
+            try:
+                unbind_customer(external_userid)
+                guest_profile.record_checkout(external_userid, cur_room)
+                logger.info("[kf] 读时退房自愈: ext=%s 房间 %s 已退房, 软删绑定",
+                            external_userid[:12], cur_room)
+            except Exception as e:
+                logger.warning("[kf] 读时退房自愈失败: %s", e)
+            return None
+    return cust
+
+
 def find_customer_by_openid(openid: str) -> Optional[Dict[str, Any]]:
     """通过微信 OpenID 查找客人
 
@@ -236,6 +310,27 @@ async def convert_external_userid_to_openid(external_userid: str) -> str:
     except Exception as e:
         logger.warning("[kf] OpenID 转换异常: %s", e)
         return ""
+
+
+async def _handshake_bind(external_userid: str, room_no: str,
+                          guest_name: str, guest_phone: str = "") -> None:
+    """v2.4-identity: 绑房后与前台入住(PMS)握手 + 缓存 openid + 记录本次住宿(跨退房保留)。"""
+    openid = ""
+    cust = find_customer_by_external_userid(external_userid)
+    if cust:
+        openid = cust.get("openid", "") or ""
+    if not openid and external_userid.startswith("wm"):
+        openid = await convert_external_userid_to_openid(external_userid)
+        if openid and cust:
+            try:
+                cust["openid"] = openid
+                save_customers(load_customers())
+            except Exception:
+                pass
+    try:
+        guest_profile.record_bind(external_userid, room_no, guest_name, guest_phone, openid)
+    except Exception as e:
+        logger.warning("[kf] 身份握手(record_bind)失败: %s", e)
 
 
 def find_customer_by_room(room_no: str, guest_name: str = "") -> List[Dict[str, Any]]:
@@ -339,6 +434,51 @@ def unbind_customer(external_userid: str) -> bool:
             save_customers(customers)
             return True
     return False
+
+
+def sync_checkout_from_pms(room_no: str, phone: str = "", name: str = "") -> int:
+    """v2.4: PMS/房态看板/AGENT 退房后, 反向解绑该房间的活跃微信客人绑定并记录退房。
+
+    以 room_no 为主键清绑 (退房即腾空房间); 若入住/房态提供了电话/姓名则一并记录,
+    用于 guest_profile 关闭本次住宿。幂等、内部吞异常, 返回被解绑的客人数量。
+    修的问题: 客人从微信入口绑房, 但退房在别的入口(看板/前台登记/AGENT)操作,
+    之前 t_customers 不会被清, 导致后续微信来消息仍被识别成"还住在原房间"。
+    """
+    room_no = str(room_no or "").strip()
+    if not room_no:
+        return 0
+    try:
+        customers = load_customers()
+    except Exception as e:
+        logger.warning("[kf] 退房反向解绑读取客人失败: %s", e)
+        return 0
+    np = _norm_phone(phone)
+    nm = str(name or "").strip()
+    ts = now()
+    changed = 0
+    for c in customers:
+        if c.get("deleted"):
+            continue
+        if str(c.get("room_no") or "").strip() != room_no:
+            continue
+        c["deleted"] = True
+        c["unbound_at"] = ts
+        c["checkout_at"] = ts
+        c["updated_at"] = ts
+        ext = c.get("external_userid", "")
+        try:
+            guest_profile.record_checkout(ext, room_no)
+        except Exception as e:
+            logger.warning("[kf] record_checkout 失败 ext=%s: %s", ext[:12], e)
+        changed += 1
+    if changed:
+        try:
+            save_customers(customers)
+            logger.info("[kf] 退房反向解绑: 房间 %s 清理 %d 个微信绑定 (PMS name=%s)",
+                        room_no, changed, nm or np or "-")
+        except Exception as e:
+            logger.warning("[kf] 退房反向解绑保存失败: %s", e)
+    return changed
 
 
 # ─────────────────────────────────────────────
@@ -1058,9 +1198,15 @@ async def handle_kf_msg_item(item: Dict[str, Any], open_kfid: str = "") -> Dict[
                 # 回访客人（有历史但已退房）
                 visits = customer.get("return_visits", 0) + 1
                 kf_id = ext
+                _last = guest_profile.get_last_stay(ext)
+                _stay_line = ""
+                if _last.get("room_no"):
+                    _rt = f"（{_last['room_type']}）" if _last.get("room_type") else ""
+                    _stay_line = (f"上次您住在 {_last['room_no']}{_rt}，"
+                                  f"累计入住 {_last.get('stay_count', 0)} 次，历史偏好已保留。\n\n")
                 text = (
                     f"👋 欢迎回来！这是您第 {visits} 次入住。\n"
-                    f"您的历史需求记录已自动保留。\n\n"
+                    + _stay_line +
                     f"请发送您的新房间号进行绑定：\n"
                     f"绑定 <房间号> <姓名>\n\n"
                     f"例如：绑定 1306 张三"
@@ -1091,6 +1237,11 @@ async def handle_kf_msg_item(item: Dict[str, Any], open_kfid: str = "") -> Dict[
     _openid = (_customer or {}).get("openid", "")
     if not _openid and ext.startswith("wm"):
         _openid = await convert_external_userid_to_openid(ext)
+        if _openid:
+            try:
+                guest_profile.record_openid(ext, _openid)  # v2.4-identity: 未绑房也留档
+            except Exception:
+                pass
         if _openid and _customer:
             _customer["openid"] = _openid
             save_customers(load_customers())  # persist
@@ -1125,6 +1276,8 @@ async def handle_kf_msg_item(item: Dict[str, Any], open_kfid: str = "") -> Dict[
             content.startswith("报修"),
             content in ("退房", "checkout"),
             content in ("帮助", "help", "?", "？"),
+            # v2.4-roomfix: 自然语言报房号(我住/换房/房号/搬到/入住 + 3~5位数字) 视为命令
+            bool(re.search(r"(我.{0,4}住|换房|搬到|房号|房间号|入住|登记|记录)\D{0,4}\d{3,5}", content)),
         ])
 
         if not _is_command:
@@ -1191,6 +1344,68 @@ async def handle_kf_msg_item(item: Dict[str, Any], open_kfid: str = "") -> Dict[
 # AI 应答 (v1.4.0: 接 QwenPaw 智能体)
 # ─────────────────────────────────────────────
 
+# v2.4-scope: 客服应答范围闸门 (仅酒店/旅游/本地生活; 离题与寒暄短路, 省 token)
+_KF_INSCOPE = (
+    "房", "入住", "退房", "续住", "换房", "押金", "发票", "开票", "早餐", "晚饭",
+    "wifi", "无线网络", "网络", "密码", "停车", "洗车", "洗衣", "烘干", "空调",
+    "热水", "暖气", "电视", "毛巾", "浴巾", "牙刷", "牙膏", "拖鞋", "吹风机",
+    "打扫", "清洁", "卫生", "送", "补给", "加床", "加被", "报修", "维修", "坏了",
+    "不冷", "不热", "不亮", "堵", "漏水", "前台", "服务", "礼宾", "行李", "寄存",
+    "接机", "送机", "叫车", "打车", "出租", "地铁", "公交", "机场", "高铁", "火车",
+    "景点", "景区", "门票", "旅游", "游玩", "逛街", "购物", "超市", "便利店",
+    "美食", "吃", "餐厅", "饭店", "外卖", "咖啡", "茶", "酒吧", "夜宵",
+    "附近", "周边", "交通", "怎么去", "路线", "多远", "位置", "地址", "电话",
+    "价格", "多少钱", "费用", "收费", "优惠", "折扣", "会员", "积分",
+    "开放", "几点", "时间", "营业", "健身", "游泳", "泳池", "桑拿", "棋牌",
+    "会议室", "打印", "儿童", "亲子", "宠物", "吸烟", "电梯", "门禁", "刷卡",
+    "桂山", "华星", "桂林", "阳朔", "漓江", "象鼻山", "东西巷", "七星", "叠彩",
+    "人工", "客服", "投诉", "建议", "表扬", "找回", "遗失", "丢失", "捡到",
+    "预订", "订房", "取消", "退款", "延迟退房", "钟点房", "连住", "间夜",
+)
+_KF_OFFTOPIC = (
+    "写代码", "编程", "python", "java", "c++", "c#", "javascript", "js", "html",
+    "css", "sql", "算法", "数据结构", "前端", "后端", "接口", "api", "debug",
+    "调试", "编译", "报错", "异常栈", "github", "爬虫", "机器学习", "深度学习",
+    "神经网络", "训练模型", "数学题", "微积分", "方程", "解题", "证明", "高数",
+    "翻译", "论文", "作文", "润色", "改写", "合同", "法律文书", "起诉", "打官司",
+    "看病", "症状", "处方", "开药", "吃药", "诊断", "病情", "怀孕", "彩票",
+    "六合彩", "博彩", "赌", "开奖", "号码预测", "股票", "基金", "涨跌", "炒币",
+    "币种", "区块链", "比特币", "星座", "塔罗", "算命", "八字", "风水",
+    "打游戏", "王者荣耀", "原神", "英雄联盟", "游戏攻略", "写小说", "陪聊",
+    "陪我聊", "讲个笑话", "说段子", "无聊", "政治", "领导人", "选举", "国家主席",
+    "战争", "核武", "毒品", "枪支", "怎么制作", "如何入侵", "黑客", "破解",
+)
+_KF_SMALLTALK = (
+    "你好", "您好", "hi", "hello", "哈喽", "嗨", "在吗", "在不在", "有人吗",
+    "谢谢", "多谢", "感谢", "好的", "收到", "嗯嗯", "哦", "哈哈", "再见",
+    "你是谁", "自我介绍", "你叫什么", "早上好", "晚上好", "晚安", "干嘛的",
+    "能做什么", "会什么", "帮助", "help",
+)
+
+
+def _classify_kf_scope(text: str) -> str:
+    """返回 'inscope' | 'offtopic' | 'smalltalk' | 'unknown' (零模型开销)
+
+    保守: 命中 in-scope 词即放行交 agent; 无 in-scope 才判 offtopic/smalltalk。
+    'unknown' 交 agent + prompt 兜底, 避免误伤非常规措辞的真实咨询。
+    """
+    t = (text or "").strip().lower()
+    if not t:
+        return "unknown"
+    if any(w in t for w in _KF_INSCOPE):
+        return "inscope"
+    if re.search(r"\d{3,5}", t):
+        return "inscope"
+    if any(w in t for w in _KF_OFFTOPIC):
+        return "offtopic"
+    core = re.sub(r"[\s。，、！？,.!?~～]+", "", t)
+    if not core:
+        return "unknown"
+    if core in _KF_SMALLTALK or len(core) <= 3:
+        return "smalltalk"
+    return "unknown"
+
+
 def _search_knowledge_base(query: str, top_k: int = 3) -> List[str]:
     """简单关键词匹配知识库（v1.4.1 兜底实现）
 
@@ -1234,7 +1449,7 @@ async def ai_reply_for_guest(external_userid: str, content: str) -> str:
     - 回复超 2000 字节截断 (企微客服文本上限 2048 字节)
     """
     agent_id = get_kf_ai_agent()
-    customer = find_active_customer_by_external_userid(external_userid)
+    customer = resolve_current_room(external_userid)  # v2.4-roomfix: 与前台入住对账, 用真实房号
     context = ""
     if customer:
         room_no = customer.get("room_no", "")
@@ -1286,6 +1501,23 @@ async def ai_reply_for_guest(external_userid: str, content: str) -> str:
     else:
         kb_context = ""
 
+    # v2.4-scope: 范围闸门 — 离题/寒暄直接短路, 不调 agent (省 token); in-scope/未分类才放行
+    _scope = _classify_kf_scope(content)
+    if _scope == "smalltalk":
+        return {
+            "ok": True, "action": "scope_smalltalk",
+            "message": "您好，我是桂山华星酒店贴心管家 🛎️\n"
+                       "酒店设施、入住退房、报修送物、发票停车、周边交通景点推荐等，"
+                       "都可以直接问我～",
+        }
+    if _scope == "offtopic":
+        return {
+            "ok": True, "action": "scope_offtopic",
+            "message": "抱歉，我只负责本酒店住宿与出行相关咨询"
+                       "（设施/服务/政策/报修/周边交通景点等）🙂\n"
+                       "您的问题超出了服务范围。如需其他帮助，可发送「人工」转接人工客服。",
+        }
+
     # v1.4.1: 注入客人档案上下文
     profile_context = ""
     if customer:
@@ -1306,11 +1538,16 @@ async def ai_reply_for_guest(external_userid: str, content: str) -> str:
         # session 路由: 每个客人独立会话 (409 时 force_new 重试)
         sm = chat_session_manager.get_session_manager()
         session_id = "default"
+        is_first_turn = True  # sm 不可用时每条都当首轮, 保证上下文完整
         if sm is not None:
             session_info = sm.get_or_create(f"kf-{external_userid}", agent_id)
             session_id = session_info.get("session_id", "default")
+            is_first_turn = bool(session_info.get("created_new"))
 
-        message = f"[微信客服] {context}{profile_context}{kb_context}{content}"
+        # v2.4-slim: 客人身份/档案是会话内静态信息, 仅首轮注入;
+        # 后续轮次靠 session 历史即可, 避免每轮重复叠加撑大 prompt 拖慢回复。
+        identity_block = f"{context}{profile_context}" if is_first_turn else ""
+        message = f"[微信客服] {identity_block}{kb_context}{content}"
         req_body = {
             "input": [{"content": [{"type": "text", "text": message}]}],
             "user_id": f"kf-{external_userid}",
@@ -1401,7 +1638,7 @@ async def handle_draft_flow(external_userid: str, content: str) -> Optional[Dict
                     "work_type": _guess_work_type(draft.get("description", "")),
                     "description": draft.get("description", ""),
                     "room_no": draft.get("room_no", ""),
-                    "target_dept": _guess_dept(draft.get("description", "")),
+                    "target_dept": "frontdesk",  # v2.4-intake: 前台收单
                 }],
             }
             result = await _create_request_from_payload(payload, created_by=f"guest:{external_userid}")
@@ -1682,8 +1919,7 @@ async def handle_kf_text_message(
             if len(tokens) > 1:
                 guest_name = "".join(tokens[1:])
         if room_no and guest_name:
-            # 校验房间是否存在
-            from . import data_layer
+            # 校验房间是否存在 (data_layer 顶层已导入; 函数内再 from . import 会:1)运行时相对导入失败 2)使其变局部名致 UnboundLocalError)
             all_rooms = data_layer.load_table("rooms")
             room_exists = any(
                 str(r.get("room_no", "")).strip() == room_no
@@ -1697,6 +1933,8 @@ async def handle_kf_text_message(
                               f"例如：绑定 1306 刘",
                 }
             customer = bind_customer(external_userid, room_no, guest_name)
+            await _handshake_bind(external_userid, room_no, guest_name,
+                                  customer.get("guest_phone", ""))  # v2.4-identity
             # 回访客人提示
             visits = customer.get("return_visits", 0)
             if visits > 0:
@@ -1725,6 +1963,45 @@ async def handle_kf_text_message(
                           f"例如：绑定 104 张四\n\n"
                           f"请提供您的房间号和入住姓名。",
             }
+
+    # v2.4-roomfix: 自然语言报房号 → 改绑/换房 (我住1401 / 换房到0505 / 房号是1401 ...)
+    _rb = re.search(
+        r"(?:我(?:现在|之前|一直)?\s*住(?:的)?(?:房间?|房号)?|换房(?:到|去)?|换(?:到|去)|"
+        r"搬(?:到|去)|房间(?:号)?(?:是|为|改成)|房号(?:是|为|改成)|入住|帮我?登记|登记|记录)\D{0,4}(\d{3,5})",
+        content,
+    )
+    if _rb:
+        new_room = _rb.group(1)
+        _existing = find_customer_by_external_userid(external_userid)
+        if not _existing:
+            return {
+                "ok": True, "action": "nl_bind_need_name",
+                "message": (f"好的，帮您登记房间 {new_room}。首次使用请补全姓名：\n"
+                            f"发送「绑定 {new_room} <您的姓名>」\n例如：绑定 {new_room} 张三"),
+            }
+        _gname = (_existing.get("guest_name") or "").strip()
+        _gphone = _existing.get("guest_phone") or ""
+        _all_rooms = data_layer.load_table("rooms")
+        if not any(str(r.get("room_no", "")).strip() == new_room for r in _all_rooms):
+            return {
+                "ok": True, "action": "nl_bind_room_not_found",
+                "message": f"⚠️ 房间 {new_room} 不存在，请核对房号后重发。",
+            }
+        _old = str(_existing.get("room_no") or "").strip()
+        if _old == new_room:
+            return {
+                "ok": True, "action": "nl_bind_same",
+                "message": f"✓ 您当前登记的房间就是 {new_room}（{_gname}），无需更改。",
+            }
+        bind_customer(external_userid, new_room, _gname, guest_phone=_gphone)
+        await _handshake_bind(external_userid, new_room, _gname, _gphone)  # v2.4-identity
+        _verb = "换房" if _old else "登记"
+        return {
+            "ok": True, "action": "nl_bind",
+            "message": (f"✅ 已为您{_verb}房间 {new_room}（{_gname}）。\n"
+                        + (f"原房间 {_old} 已更新。\n" if _old else "")
+                        + "后续送物/退房/状态查询都以该房号为准。"),
+        }
 
     # 解绑命令
     if content in ("解绑", "unbind", "取消绑定"):
@@ -1866,7 +2143,7 @@ async def handle_kf_text_message(
             description=description,
             priority="normal",
             reporter=f"客人:{customer.get('guest_name', '')}",
-            target_dept="engineering",
+            target_dept="frontdesk",  # v2.4-intake: 客人报修统一前台收单, 前台再派工程
             data_source="guest_kf",
             operator=f"guest:{external_userid}",
             extra=({"guest_id": customer["openid"]} if customer.get("openid") else None),
@@ -1896,9 +2173,16 @@ async def handle_kf_text_message(
         }
 
     # 所有非命令消息 → AI 智能体应答 (有 guest_request_service 等工具，能处理报修/送物/打扫等)
-    ai_reply = await ai_reply_for_guest(external_userid, content)
-    if ai_reply:
-        return {"ok": True, "action": "ai_reply", "message": ai_reply}
+    # v2.4-fix: ai_reply_for_guest 可能返回 str(正常) 或 dict(kb_direct/重绑/scope), 统一抽取 message, 避免 dict 被当文本发送(40058)或切片(unhashable slice)
+    ai_result = await ai_reply_for_guest(external_userid, content)
+    if isinstance(ai_result, dict):
+        ai_msg = (ai_result.get("message") or "").strip()
+        if ai_msg:
+            return {"ok": True, "action": ai_result.get("action", "ai_reply"), "message": ai_msg}
+    else:
+        ai_msg = (ai_result or "").strip()
+        if ai_msg:
+            return {"ok": True, "action": "ai_reply", "message": ai_msg}
 
     # AI 不可用时的兜底文案
     return {

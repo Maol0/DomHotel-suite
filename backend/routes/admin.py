@@ -157,6 +157,60 @@ def register_routes(app) -> None:
             return {"ok": True, "found": False, "profile": None}
         return {"ok": True, "found": True, "profile": profile}
 
+    # v2.4-identity: 身份握手诊断 (只读) — 验证 openid 转换权限 + 展示握手/住宿史
+    @router.get("/admin/identity-debug")
+    async def admin_identity_debug(
+        ctx=Depends(get_ctx),
+        ext: str = "",
+        phone: str = "",
+        name: str = "",
+    ):
+        """只读身份诊断。用法: /admin/identity-debug?ext=<wm...>
+
+        1) 实时调 convert_to_openid, 直接验证「客户联系」权限是否真的生效;
+        2) 展示已存储的身份(external_userid↔openid↔phone↔PMS 关联)与住宿史/偏好。
+        不发送任何消息, 不改数据。
+        """
+        ext = (ext or "").strip()
+        if not ext:
+            raise HTTPException(400, detail="缺少 ext (external_userid)")
+        out: Dict[str, Any] = {"ok": True, "external_userid": ext,
+                               "is_wechat_native": ext.startswith("wm")}
+        try:
+            out["stored_identity"] = guest_profile.get_identity(ext)
+        except Exception as e:
+            out["stored_identity_error"] = str(e)
+        try:
+            from .. import wecom_kf
+        except Exception as e:
+            wecom_kf = None
+            out["convert_error"] = f"wecom_kf 导入失败: {e}"
+        cust = None
+        if wecom_kf is not None:
+            try:
+                oid = await wecom_kf.convert_external_userid_to_openid(ext)
+                out["convert_live"] = {
+                    "openid": oid, "success": bool(oid),
+                    "note": "转换成功" if oid else "空→权限未生效/非 wm 微信自然人/接口报错(见应用日志)",
+                }
+            except Exception as e:
+                out["convert_live"] = {"success": False, "error": str(e)}
+            try:
+                cust = wecom_kf.find_customer_by_external_userid(ext)
+                if cust:
+                    out["customer_record"] = {k: cust.get(k) for k in
+                        ("customer_id", "room_no", "guest_name", "guest_phone",
+                         "openid", "deleted", "return_visits")}
+            except Exception as e:
+                out["customer_error"] = str(e)
+        try:
+            _ph = phone or (cust or {}).get("guest_phone", "")
+            _nm = name or (cust or {}).get("guest_name", "")
+            out["pms_match_preview"] = guest_profile._find_pms_checkin(_ph, _nm) or {}
+        except Exception as e:
+            out["pms_match_error"] = str(e)
+        return out
+
     # v1.4.1: 全链路冒烟检测
     @router.get("/admin/smoke-test")
     async def admin_smoke_test(ctx=Depends(get_ctx)):

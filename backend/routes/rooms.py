@@ -15,6 +15,7 @@ from ._helpers import now, create_work_order, new_id, build_work_order, save_wor
 from .work_order_svc import svc_create_work_order, svc_complete_work_order
 from .. import auth
 from .. import meta as _meta
+from ..wecom_kf import sync_checkout_from_pms
 
 logger = logging.getLogger(__name__)
 
@@ -549,6 +550,11 @@ def register_routes(app) -> None:
             guest_phone=old_phone,
             operator=_resolve_operator_name(created_by),
         )
+        # v2.4: 退房反向解绑微信客人绑定 (修: 看板退房后微信仍认旧房)
+        try:
+            sync_checkout_from_pms(room_no, phone=old_phone, name=old_guest)
+        except Exception as e:
+            logger.warning("退房反向解绑微信失败(不影响退房): %s", e)
         # 推企微 (房态变更走 rooms_log; 客人入住历史走 guests_log)
         try:
             _ts = now()

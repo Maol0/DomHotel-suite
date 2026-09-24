@@ -162,7 +162,7 @@ async def submit_guest_service(
 
     # 创建工单
     work_type = _guess_work_type(service_type, description)
-    target_dept = _guess_dept(service_type, description)
+    target_dept = "frontdesk"  # v2.4-intake: 客人请求统一前台收单
     priority = urgency if urgency in ("urgent", "high", "normal", "low") else "normal"
 
     # v1.6.1 统一收口: 委托 service (建单 + 派单 + 企微表格同步 + 员工卡片 + 客人回执)
